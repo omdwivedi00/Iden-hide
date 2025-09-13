@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .image-container { margin: 20px 0; }
+        .image-container img { max-width: 100%; height: auto; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Download API Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Download Endpoint</h3>
+        <button onclick="testDownload()">Test Download</button>
+        <div id="download-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test Image Display</h3>
+        <button onclick="testImageDisplay()">Test Image Display</button>
+        <div class="image-container">
+            <img id="testImage" style="display: none;" alt="Test image">
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        const TEST_FILENAME = 'frame_000010_1757759628_blurred.jpg';
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        async function testDownload() {
+            try {
+                const url = `${API_BASE_URL}/download/${TEST_FILENAME}`;
+                log(`Testing download URL: ${url}`, 'info');
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'image/jpeg',
+                    }
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    log(`Download successful: ${blob.size} bytes, type: ${blob.type}`, 'success');
+                    document.getElementById('download-result').innerHTML = 
+                        `<span class="success">✅ Download successful: ${blob.size} bytes</span>`;
+                } else {
+                    log(`Download failed: ${response.status} ${response.statusText}`, 'error');
+                    const errorText = await response.text();
+                    log(`Error details: ${errorText}`, 'error');
+                    document.getElementById('download-result').innerHTML = 
+                        `<span class="error">❌ Download failed: ${response.status}</span>`;
+                }
+            } catch (error) {
+                log(`Download error: ${error.message}`, 'error');
+                document.getElementById('download-result').innerHTML = 
+                    `<span class="error">❌ Download error: ${error.message}</span>`;
+            }
+        }
+
+        async function testImageDisplay() {
+            try {
+                const url = `${API_BASE_URL}/download/${TEST_FILENAME}`;
+                log(`Testing image display: ${url}`, 'info');
+                
+                const img = document.getElementById('testImage');
+                img.onload = function() {
+                    log(`Image loaded successfully: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
+                };
+                img.onerror = function() {
+                    log(`Image failed to load`, 'error');
+                };
+                
+                img.src = url;
+                img.style.display = 'block';
+                
+            } catch (error) {
+                log(`Image display error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test on page load
+        window.onload = function() {
+            testDownload();
+        };
+    </script>
+</body>
+</html>

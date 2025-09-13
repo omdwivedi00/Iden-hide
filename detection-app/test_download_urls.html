@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download URL Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input[type="text"] { padding: 8px; margin: 5px; width: 300px; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .url-test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🔗 Download URL Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Download URLs</h3>
+        <div>
+            <input type="text" id="filenameInput" placeholder="Enter filename (e.g., frame_000000_1757766019_blurred.jpg)" value="frame_000000_1757766019_blurred.jpg">
+            <button onclick="testDownloadUrl()">Test Download URL</button>
+            <button onclick="listAvailableFiles()">List Available Files</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. URL Construction Test</h3>
+        <div>
+            <button onclick="testUrlConstruction()">Test React URL Construction</button>
+            <button onclick="testBlurredImagePath()">Test Blurred Image Path Parsing</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        async function testDownloadUrl() {
+            const filename = document.getElementById('filenameInput').value.trim();
+            if (!filename) {
+                log('Please enter a filename', 'error');
+                return;
+            }
+
+            try {
+                log(`Testing download URL: ${API_BASE_URL}/download/${filename}`, 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/download/${filename}`);
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    log(`✅ Download successful! File size: ${blob.size} bytes`, 'success');
+                    
+                    // Create download link
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    link.textContent = `Download ${filename}`;
+                    link.style.display = 'block';
+                    link.style.margin = '10px 0';
+                    link.style.padding = '10px';
+                    link.style.backgroundColor = '#e8f5e8';
+                    link.style.border = '1px solid #4caf50';
+                    link.style.borderRadius = '3px';
+                    link.style.textDecoration = 'none';
+                    link.style.color = '#2e7d32';
+                    document.getElementById('results').appendChild(link);
+                } else {
+                    const errorData = await response.json();
+                    log(`❌ Download failed: ${response.status} - ${errorData.detail}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Network error: ${error.message}`, 'error');
+            }
+        }
+
+        async function listAvailableFiles() {
+            try {
+                log('Fetching available files...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/download/`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`✅ Found ${data.total_count} files:`, 'success');
+                    data.available_files.slice(0, 10).forEach(file => {
+                        log(`  - ${file.filename} (${Math.round(file.size_bytes/1024)}KB)`, 'info');
+                    });
+                    if (data.available_files.length > 10) {
+                        log(`  ... and ${data.available_files.length - 10} more files`, 'info');
+                    }
+                } else {
+                    log(`❌ Failed to list files: ${data.detail}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Network error: ${error.message}`, 'error');
+            }
+        }
+
+        function testUrlConstruction() {
+            log('Testing React URL construction logic...', 'info');
+            
+            // Simulate React app URL construction
+            const testCases = [
+                'output/frame_000000_1757766019_blurred.jpg',
+                'frame_000000_1757766019_blurred.jpg',
+                '/output/frame_000000_1757766019_blurred.jpg',
+                'blurred_image.jpg',
+                'test.jpg'
+            ];
+            
+            testCases.forEach(fullPath => {
+                // React logic: image.blurred.blurred_image_path.split('/').pop()
+                const filename = fullPath.split('/').pop();
+                const constructedUrl = `${API_BASE_URL}/download/${filename}`;
+                
+                log(`Input: "${fullPath}" → Filename: "${filename}" → URL: "${constructedUrl}"`, 'info');
+            });
+        }
+
+        function testBlurredImagePath() {
+            log('Testing blurred image path parsing...', 'info');
+            
+            // Simulate the exact logic from React app
+            const blurredImagePath = 'output/frame_000000_1757766019_blurred.jpg';
+            const filename = blurredImagePath.split('/').pop();
+            const url = `${API_BASE_URL}/download/${filename}`;
+            
+            log(`Blurred image path: "${blurredImagePath}"`, 'info');
+            log(`Extracted filename: "${filename}"`, 'info');
+            log(`Constructed URL: "${url}"`, 'info');
+            
+            // Test the URL
+            fetch(url)
+                .then(response => {
+                    if (response.ok) {
+                        log(`✅ URL works! Status: ${response.status}`, 'success');
+                    } else {
+                        log(`❌ URL failed! Status: ${response.status}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    log(`❌ URL test error: ${error.message}`, 'error');
+                });
+        }
+
+        // Test on page load
+        window.onload = function() {
+            log('Page loaded. Ready to test download URLs.', 'info');
+            listAvailableFiles();
+        };
+    </script>
+</body>
+</html>

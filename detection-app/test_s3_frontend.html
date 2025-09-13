@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 Frontend Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #5a6fd8;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>☁️ S3 Processing Frontend Test</h1>
+    
+    <div class="container">
+        <h2>🔐 AWS Credentials</h2>
+        <div class="form-group">
+            <label for="accessKey">AWS Access Key ID:</label>
+            <input type="text" id="accessKey" placeholder="AKIA...">
+        </div>
+        <div class="form-group">
+            <label for="secretKey">AWS Secret Access Key:</label>
+            <input type="password" id="secretKey" placeholder="Your secret key">
+        </div>
+        <div class="form-group">
+            <label for="sessionToken">AWS Session Token (Optional):</label>
+            <input type="text" id="sessionToken" placeholder="For temporary credentials">
+        </div>
+        <button onclick="testCredentials()">🔐 Test Credentials</button>
+        <div id="credentialStatus"></div>
+    </div>
+
+    <div class="container">
+        <h2>📋 S3 Folder Listing</h2>
+        <div class="form-group">
+            <label for="folderPath">S3 Folder Path:</label>
+            <input type="text" id="folderPath" placeholder="s3://bucket/folder/">
+        </div>
+        <button onclick="listFolder()">📋 List Folder</button>
+        <div id="folderStatus"></div>
+        <div id="folderResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>🖼️ Single Image Processing</h2>
+        <div class="form-group">
+            <label for="inputPath">Input S3 Path:</label>
+            <input type="text" id="inputPath" placeholder="s3://bucket/path/image.jpg">
+        </div>
+        <div class="form-group">
+            <label for="outputPath">Output S3 Path:</label>
+            <input type="text" id="outputPath" placeholder="s3://bucket/path/image-blurred.jpg">
+        </div>
+        <button onclick="processSingleImage()">🚀 Process Image</button>
+        <div id="singleStatus"></div>
+        <div id="singleResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>📁 Folder Processing</h2>
+        <div class="form-group">
+            <label for="inputFolder">Input S3 Folder:</label>
+            <input type="text" id="inputFolder" placeholder="s3://bucket/input/">
+        </div>
+        <div class="form-group">
+            <label for="outputFolder">Output S3 Folder:</label>
+            <input type="text" id="outputFolder" placeholder="s3://bucket/output/">
+        </div>
+        <button onclick="processFolder()">🚀 Process Folder</button>
+        <div id="folderProcessStatus"></div>
+        <div id="folderProcessResult"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let credentialsValid = false;
+
+        function getCredentials() {
+            return {
+                aws_access_key_id: document.getElementById('accessKey').value,
+                aws_secret_access_key: document.getElementById('secretKey').value,
+                aws_session_token: document.getElementById('sessionToken').value || null
+            };
+        }
+
+        function showStatus(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function showResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${isError ? 'error' : 'success'}">${JSON.stringify(data, null, 2)}</div>`;
+        }
+
+        async function testCredentials() {
+            const credentials = getCredentials();
+            
+            if (!credentials.aws_access_key_id || !credentials.aws_secret_access_key) {
+                showStatus('credentialStatus', 'error', 'Please enter AWS credentials');
+                return;
+            }
+
+            showStatus('credentialStatus', 'info', 'Testing credentials...');
+
+            try {
+                const params = new URLSearchParams({
+                    aws_access_key_id: credentials.aws_access_key_id,
+                    aws_secret_access_key: credentials.aws_secret_access_key,
+                });
+                
+                if (credentials.aws_session_token) {
+                    params.append('aws_session_token', credentials.aws_session_token);
+                }
+
+                const response = await fetch(`${API_BASE_URL}/s3/test-credentials?${params}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    credentialsValid = true;
+                    showStatus('credentialStatus', 'success', '✅ AWS credentials are valid!');
+                } else {
+                    credentialsValid = false;
+                    showStatus('credentialStatus', 'error', `❌ ${result.message}`);
+                }
+            } catch (error) {
+                credentialsValid = false;
+                showStatus('credentialStatus', 'error', `❌ Error: ${error.message}`);
+            }
+        }
+
+        async function listFolder() {
+            if (!credentialsValid) {
+                showStatus('folderStatus', 'error', 'Please test credentials first');
+                return;
+            }
+
+            const folderPath = document.getElementById('folderPath').value;
+            if (!folderPath) {
+                showStatus('folderStatus', 'error', 'Please enter S3 folder path');
+                return;
+            }
+
+            showStatus('folderStatus', 'info', 'Listing folder contents...');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/s3/list-folder`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        credentials: getCredentials(),
+                        s3_folder_path: folderPath
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('folderStatus', 'success', `✅ Found ${result.total_count} images`);
+                    showResult('folderResult', result);
+                } else {
+                    showStatus('folderStatus', 'error', `❌ ${result.error}`);
+                    showResult('folderResult', result, true);
+                }
+            } catch (error) {
+                showStatus('folderStatus', 'error', `❌ Error: ${error.message}`);
+            }
+        }
+
+        async function processSingleImage() {
+            if (!credentialsValid) {
+                showStatus('singleStatus', 'error', 'Please test credentials first');
+                return;
+            }
+
+            const inputPath = document.getElementById('inputPath').value;
+            const outputPath = document.getElementById('outputPath').value;
+
+            if (!inputPath || !outputPath) {
+                showStatus('singleStatus', 'error', 'Please enter both input and output paths');
+                return;
+            }
+
+            showStatus('singleStatus', 'info', 'Processing single image...');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/s3/process-single`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        credentials: getCredentials(),
+                        input_s3_path: inputPath,
+                        output_s3_path: outputPath,
+                        detect_face: true,
+                        detect_license_plate: true,
+                        face_blur_strength: 25,
+                        plate_blur_strength: 20
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('singleStatus', 'success', '✅ Image processed successfully!');
+                    showResult('singleResult', result);
+                } else {
+                    showStatus('singleStatus', 'error', `❌ ${result.message}`);
+                    showResult('singleResult', result, true);
+                }
+            } catch (error) {
+                showStatus('singleStatus', 'error', `❌ Error: ${error.message}`);
+            }
+        }
+
+        async function processFolder() {
+            if (!credentialsValid) {
+                showStatus('folderProcessStatus', 'error', 'Please test credentials first');
+                return;
+            }
+
+            const inputFolder = document.getElementById('inputFolder').value;
+            const outputFolder = document.getElementById('outputFolder').value;
+
+            if (!inputFolder || !outputFolder) {
+                showStatus('folderProcessStatus', 'error', 'Please enter both input and output folders');
+                return;
+            }
+
+            showStatus('folderProcessStatus', 'info', 'Processing folder...');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/s3/process-folder`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        credentials: getCredentials(),
+                        input_s3_folder: inputFolder,
+                        output_s3_folder: outputFolder,
+                        detect_face: true,
+                        detect_license_plate: true,
+                        face_blur_strength: 25,
+                        plate_blur_strength: 20
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('folderProcessStatus', 'success', `✅ Processed ${result.successful_count}/${result.total_images} images`);
+                    showResult('folderProcessResult', result);
+                } else {
+                    showStatus('folderProcessStatus', 'error', `❌ ${result.message}`);
+                    showResult('folderProcessResult', result, true);
+                }
+            } catch (error) {
+                showStatus('folderProcessStatus', 'error', `❌ Error: ${error.message}`);
+            }
+        }
+
+        // Auto-fill example values
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('folderPath').value = 's3://my-detection-bucket/input/';
+            document.getElementById('inputPath').value = 's3://my-detection-bucket/input/sample.jpg';
+            document.getElementById('outputPath').value = 's3://my-detection-bucket/output/sample-blurred.jpg';
+            document.getElementById('inputFolder').value = 's3://my-detection-bucket/input/';
+            document.getElementById('outputFolder').value = 's3://my-detection-bucket/output/';
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Async Download Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input[type="file"] { margin: 10px 0; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .loading { opacity: 0.6; pointer-events: none; }
+        .retry-info { font-size: 12px; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔄 Async Download Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Upload Image and Process</h3>
+        <input type="file" id="imageFile" accept="image/*">
+        <div>
+            <button onclick="processImage()" id="processBtn">Process Image</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Download Test</h3>
+        <div>
+            <button onclick="testDownload()" id="downloadBtn" disabled>Test Download Blurred</button>
+            <button onclick="testRetryDownload()" id="retryBtn" disabled>Test Retry Download</button>
+        </div>
+        <div class="retry-info" id="retryInfo"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let currentImage = null;
+        let blurredImagePath = null;
+        let isProcessing = false;
+        let isDownloading = false;
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('processBtn').disabled = false;
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('retryBtn').disabled = true;
+            currentImage = null;
+            blurredImagePath = null;
+        }
+
+        function setLoading(elementId, loading) {
+            const element = document.getElementById(elementId);
+            element.disabled = loading;
+            if (loading) {
+                element.classList.add('loading');
+                element.textContent = element.textContent.replace('Test', 'Testing...');
+            } else {
+                element.classList.remove('loading');
+                element.textContent = element.textContent.replace('Testing...', 'Test');
+            }
+        }
+
+        async function processImage() {
+            const fileInput = document.getElementById('imageFile');
+            if (!fileInput.files[0]) {
+                alert('Please select an image file first');
+                return;
+            }
+
+            isProcessing = true;
+            setLoading('processBtn', true);
+            log('Starting image processing...', 'info');
+
+            try {
+                // Step 1: Detection
+                log('Step 1: Running detection...', 'info');
+                const detectionFormData = new FormData();
+                detectionFormData.append('file', fileInput.files[0]);
+                detectionFormData.append('detect_face', 'true');
+                detectionFormData.append('detect_license_plate', 'true');
+
+                const detectionResponse = await fetch(`${API_BASE_URL}/detect`, {
+                    method: 'POST',
+                    body: detectionFormData
+                });
+
+                const detectionData = await detectionResponse.json();
+                
+                if (!detectionResponse.ok) {
+                    throw new Error(`Detection failed: ${JSON.stringify(detectionData)}`);
+                }
+
+                currentImage = fileInput.files[0];
+                log(`Detection successful: ${detectionData.total_faces} faces, ${detectionData.total_license_plates} plates`, 'success');
+
+                // Step 2: Blur
+                log('Step 2: Running blur...', 'info');
+                const blurFormData = new FormData();
+                blurFormData.append('file', fileInput.files[0]);
+                blurFormData.append('detect_face', 'true');
+                blurFormData.append('detect_license_plate', 'true');
+                blurFormData.append('face_blur_strength', '25');
+                blurFormData.append('plate_blur_strength', '20');
+
+                const blurResponse = await fetch(`${API_BASE_URL}/blur`, {
+                    method: 'POST',
+                    body: blurFormData
+                });
+
+                const blurData = await blurResponse.json();
+                
+                if (!blurResponse.ok) {
+                    throw new Error(`Blur failed: ${JSON.stringify(blurData)}`);
+                }
+
+                blurredImagePath = blurData.blurred_image_path;
+                log(`Blur successful: ${blurData.message}`, 'success');
+
+                // Wait for file to be written
+                log('Waiting for blur file to be written...', 'info');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Enable download buttons
+                document.getElementById('downloadBtn').disabled = false;
+                document.getElementById('retryBtn').disabled = false;
+                log('✅ Ready for download testing', 'success');
+
+            } catch (error) {
+                log(`Processing error: ${error.message}`, 'error');
+            } finally {
+                isProcessing = false;
+                setLoading('processBtn', false);
+            }
+        }
+
+        async function testDownload() {
+            if (isDownloading) {
+                log('Download already in progress...', 'warning');
+                return;
+            }
+
+            isDownloading = true;
+            setLoading('downloadBtn', true);
+            log('Testing direct download...', 'info');
+
+            try {
+                const filename = blurredImagePath.split('/').pop();
+                const url = `${API_BASE_URL}/download/${filename}`;
+                
+                log(`Attempting download: ${url}`, 'info');
+                
+                const response = await fetch(url);
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    
+                    const link = document.createElement('a');
+                    link.href = downloadUrl;
+                    link.download = `blurred_${currentImage.name}`;
+                    link.click();
+                    
+                    log('✅ Download successful!', 'success');
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                log(`Download failed: ${error.message}`, 'error');
+            } finally {
+                isDownloading = false;
+                setLoading('downloadBtn', false);
+            }
+        }
+
+        async function testRetryDownload() {
+            if (isDownloading) {
+                log('Download already in progress...', 'warning');
+                return;
+            }
+
+            isDownloading = true;
+            setLoading('retryBtn', true);
+            log('Testing retry download with exponential backoff...', 'info');
+
+            const filename = blurredImagePath.split('/').pop();
+            const maxRetries = 3;
+            let attempt = 1;
+
+            const retryInfo = document.getElementById('retryInfo');
+            retryInfo.innerHTML = `Retry attempts: 0/${maxRetries}`;
+
+            for (attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    retryInfo.innerHTML = `Retry attempts: ${attempt}/${maxRetries}`;
+                    log(`Download attempt ${attempt}/${maxRetries} for ${filename}`, 'info');
+                    
+                    const url = `${API_BASE_URL}/download/${filename}`;
+                    const response = await fetch(url);
+                    
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const downloadUrl = window.URL.createObjectURL(blob);
+                        
+                        const link = document.createElement('a');
+                        link.href = downloadUrl;
+                        link.download = `blurred_${currentImage.name}`;
+                        link.click();
+                        
+                        log(`✅ Download successful on attempt ${attempt}!`, 'success');
+                        retryInfo.innerHTML = `✅ Success on attempt ${attempt}`;
+                        break;
+                    } else {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                } catch (error) {
+                    log(`Attempt ${attempt} failed: ${error.message}`, 'error');
+                    
+                    if (attempt < maxRetries) {
+                        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+                        log(`Waiting ${delay}ms before retry...`, 'info');
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        log(`❌ All ${maxRetries} attempts failed`, 'error');
+                        retryInfo.innerHTML = `❌ All ${maxRetries} attempts failed`;
+                    }
+                }
+            }
+            
+            isDownloading = false;
+            setLoading('retryBtn', false);
+        }
+
+        // Test on page load
+        window.onload = function() {
+            log('Page loaded. Upload an image and click "Process Image" to test async download functionality.', 'info');
+        };
+    </script>
+</body>
+</html>

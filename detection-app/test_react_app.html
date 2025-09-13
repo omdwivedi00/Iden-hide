@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React App Test - Blur Functionality</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input[type="file"] { margin: 10px 0; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .image-container { margin: 20px 0; }
+        .image-container img { max-width: 100%; height: auto; border: 1px solid #ddd; }
+        .controls { margin: 10px 0; }
+        .controls button { margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 React App Blur Functionality Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Upload Image and Test Blur</h3>
+        <input type="file" id="imageFile" accept="image/*">
+        <div class="controls">
+            <button onclick="testDetection()">Test Detection</button>
+            <button onclick="testBlur()">Test Blur</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Image Display Controls</h3>
+        <div class="controls">
+            <button id="toggleBoxes" onclick="toggleBoundingBoxes()">Hide Bounding Boxes</button>
+            <button id="toggleLabels" onclick="toggleLabels()">Hide Labels</button>
+            <button id="toggleBlurred" onclick="toggleBlurred()" disabled>Show Blurred</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Results</h3>
+        <div id="results"></div>
+        <div class="image-container">
+            <h4>Original Image with Detections:</h4>
+            <canvas id="originalCanvas" width="800" height="600" style="border: 1px solid #ddd;"></canvas>
+        </div>
+        <div class="image-container">
+            <h4>Blurred Image:</h4>
+            <img id="blurredImage" style="display: none;" alt="Blurred image">
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let currentImage = null;
+        let detections = [];
+        let blurredImagePath = null;
+        let showBoxes = true;
+        let showLabels = true;
+        let showBlurred = false;
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('originalCanvas').getContext('2d').clearRect(0, 0, 800, 600);
+            document.getElementById('blurredImage').style.display = 'none';
+            currentImage = null;
+            detections = [];
+            blurredImagePath = null;
+            updateControls();
+        }
+
+        function updateControls() {
+            document.getElementById('toggleBoxes').textContent = showBoxes ? 'Hide Bounding Boxes' : 'Show Bounding Boxes';
+            document.getElementById('toggleLabels').textContent = showLabels ? 'Hide Labels' : 'Show Labels';
+            document.getElementById('toggleBlurred').textContent = showBlurred ? 'Show Original' : 'Show Blurred';
+            document.getElementById('toggleBlurred').disabled = !blurredImagePath;
+        }
+
+        function toggleBoundingBoxes() {
+            showBoxes = !showBoxes;
+            updateControls();
+            if (currentImage) {
+                drawImageWithDetections();
+            }
+        }
+
+        function toggleLabels() {
+            showLabels = !showLabels;
+            updateControls();
+            if (currentImage) {
+                drawImageWithDetections();
+            }
+        }
+
+        function toggleBlurred() {
+            showBlurred = !showBlurred;
+            updateControls();
+            if (showBlurred && blurredImagePath) {
+                document.getElementById('blurredImage').src = `${API_BASE_URL}/download/${blurredImagePath.split('/').pop()}`;
+                document.getElementById('blurredImage').style.display = 'block';
+            } else {
+                document.getElementById('blurredImage').style.display = 'none';
+            }
+        }
+
+        async function testDetection() {
+            const fileInput = document.getElementById('imageFile');
+            if (!fileInput.files[0]) {
+                alert('Please select an image file first');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('detect_face', 'true');
+                formData.append('detect_license_plate', 'true');
+
+                const response = await fetch(`${API_BASE_URL}/detect`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    detections = data.detections || [];
+                    currentImage = fileInput.files[0];
+                    log(`Detection successful: ${data.total_faces} faces, ${data.total_license_plates} plates`, 'success');
+                    drawImageWithDetections();
+                } else {
+                    log(`Detection failed: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (error) {
+                log(`Detection error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBlur() {
+            const fileInput = document.getElementById('imageFile');
+            if (!fileInput.files[0]) {
+                alert('Please select an image file first');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('detect_face', 'true');
+                formData.append('detect_license_plate', 'true');
+                formData.append('face_blur_strength', '25');
+                formData.append('plate_blur_strength', '20');
+
+                const response = await fetch(`${API_BASE_URL}/blur`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    blurredImagePath = data.blurred_image_path;
+                    log(`Blur successful: ${data.message}`, 'success');
+                    updateControls();
+                } else {
+                    log(`Blur failed: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (error) {
+                log(`Blur error: ${error.message}`, 'error');
+            }
+        }
+
+        function drawImageWithDetections() {
+            if (!currentImage) return;
+
+            const canvas = document.getElementById('originalCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Create image object
+            const img = new Image();
+            img.onload = function() {
+                // Scale image to fit canvas
+                const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+                const scaledWidth = img.width * scale;
+                const scaledHeight = img.height * scale;
+                const x = (canvas.width - scaledWidth) / 2;
+                const y = (canvas.height - scaledHeight) / 2;
+                
+                // Draw image
+                ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+                
+                // Draw bounding boxes if enabled
+                if (showBoxes && detections.length > 0) {
+                    detections.forEach((detection, index) => {
+                        const { x1, y1, x2, y2, label, confidence } = detection;
+                        
+                        // Scale coordinates
+                        const scaleX = scaledWidth / img.width;
+                        const scaleY = scaledHeight / img.height;
+                        const scaledX1 = x + x1 * scaleX;
+                        const scaledY1 = y + y1 * scaleY;
+                        const scaledX2 = x + x2 * scaleX;
+                        const scaledY2 = y + y2 * scaleY;
+                        
+                        // Choose color based on label
+                        const color = label === 'face' ? '#00FF00' : '#FF0000';
+                        
+                        // Draw rectangle
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(scaledX1, scaledY1, scaledX2 - scaledX1, scaledY2 - scaledY1);
+                        
+                        // Draw label with confidence if enabled
+                        if (showLabels) {
+                            const labelText = `${label}: ${(confidence * 100).toFixed(1)}%`;
+                            const textMetrics = ctx.measureText(labelText);
+                            const textWidth = textMetrics.width;
+                            const textHeight = 16;
+                            
+                            // Draw background rectangle for text
+                            ctx.fillStyle = color;
+                            ctx.fillRect(scaledX1, scaledY1 - textHeight - 5, textWidth + 10, textHeight + 5);
+                            
+                            // Draw text
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.font = 'bold 12px Arial';
+                            ctx.fillText(labelText, scaledX1 + 5, scaledY1 - 5);
+                        }
+                    });
+                }
+            };
+            
+            img.src = URL.createObjectURL(currentImage);
+        }
+
+        // Initialize
+        updateControls();
+    </script>
+</body>
+</html>

@@ -1,0 +1,544 @@
+### Unified Detection Production System - API Tests
+Base URL: http://localhost:8000
+### Documentation: http://localhost:8000/docs
+
+### ============================================
+### 1. HEALTH CHECK
+### ============================================
+
+GET {{base_url}}/health
+Accept: application/json
+
+### Expected Response:
+### {
+###   "status": "healthy",
+###   "message": "API is running"
+### }
+
+### ============================================
+### 2. API INFORMATION
+### ============================================
+
+GET {{base_url}}/
+Accept: application/json
+
+### Expected Response:
+### {
+###   "message": "Unified Detection API",
+###   "version": "1.0.0",
+###   "endpoints": {
+###     "detect": "/detect - POST - Detect objects in image",
+###     "blur": "/blur - POST - Blur detected objects in image",
+###     "health": "/health - GET - Health check"
+###   }
+### }
+
+### ============================================
+### 3. OBJECT DETECTION - FACE AND LICENSE PLATE
+### ============================================
+
+POST {{base_url}}/detect
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000000.png"
+Content-Type: image/png
+
+< ./test_images/frame_000000.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Expected Response:
+### {
+###   "success": true,
+###   "message": "Successfully detected X objects",
+###   "detections": [
+###     {
+###       "x1": 1045,
+###       "y1": 603,
+###       "x2": 1057,
+###       "y2": 612,
+###       "confidence": 0.381,
+###       "label": "face"
+###     },
+###     {
+###       "x1": 0,
+###       "y1": 829,
+###       "x2": 90,
+###       "y2": 893,
+###       "confidence": 0.756,
+###       "label": "license_plate"
+###     }
+###   ],
+###   "total_faces": 2,
+###   "total_license_plates": 2,
+###   "processing_time_ms": 1553.71
+### }
+
+### ============================================
+### 4. OBJECT DETECTION - FACES ONLY
+### ============================================
+
+POST {{base_url}}/detect
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000020.png"
+Content-Type: image/png
+
+< ./test_images/frame_000020.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+false
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================
+### 5. OBJECT DETECTION - LICENSE PLATES ONLY
+### ============================================
+
+POST {{base_url}}/detect
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000030.png"
+Content-Type: image/png
+
+< ./test_images/frame_000030.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+false
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================
+### 6. PRIVACY BLUR - DEFAULT SETTINGS
+### ============================================
+
+POST {{base_url}}/blur
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000000.png"
+Content-Type: image/png
+
+< ./test_images/frame_000000.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="face_blur_strength"
+
+15
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="plate_blur_strength"
+
+15
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Expected Response:
+### {
+###   "success": true,
+###   "message": "Successfully blurred X objects",
+###   "blurred_image_path": "output/frame_000000_1757753973_blurred.jpg",
+###   "detections_applied": 4,
+###   "processing_time_ms": 1515.36
+### }
+
+### ============================================
+### 7. PRIVACY BLUR - CUSTOM BLUR STRENGTH
+### ============================================
+
+POST {{base_url}}/blur
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000020.png"
+Content-Type: image/png
+
+< ./test_images/frame_000020.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="face_blur_strength"
+
+25
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="plate_blur_strength"
+
+30
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================
+### 8. PRIVACY BLUR - FACES ONLY
+### ============================================
+
+POST {{base_url}}/blur
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000030.png"
+Content-Type: image/png
+
+< ./test_images/frame_000030.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+false
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="face_blur_strength"
+
+20
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================
+### 9. PRIVACY BLUR - LICENSE PLATES ONLY
+### ============================================
+
+POST {{base_url}}/blur
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000000.png"
+Content-Type: image/png
+
+< ./test_images/frame_000000.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+false
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="plate_blur_strength"
+
+35
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================
+### 10. LIST OUTPUT FILES
+### ============================================
+
+GET {{base_url}}/outputs
+Accept: application/json
+
+### Expected Response:
+### {
+###   "files": [
+###     {
+###       "filename": "frame_000000_1757753973_blurred.jpg",
+###       "size_bytes": 245760,
+###       "created_at": 1757753973.123
+###     }
+###   ],
+###   "total_count": 1
+### }
+
+### ============================================
+### 11. DOWNLOAD PROCESSED FILE
+### ============================================
+
+GET {{base_url}}/download/frame_000000_1757753973_blurred.jpg
+Accept: image/jpeg
+
+### Expected Response: Binary image file
+
+### ============================================
+### 12. ERROR HANDLING - INVALID FILE TYPE
+### ============================================
+
+POST {{base_url}}/detect
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="test.txt"
+Content-Type: text/plain
+
+This is not an image file
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Expected Response:
+### {
+###   "detail": "File must be an image"
+### }
+
+### ============================================
+### 13. ERROR HANDLING - INVALID BLUR STRENGTH
+### ============================================
+
+POST {{base_url}}/blur
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000000.png"
+Content-Type: image/png
+
+< ./test_images/frame_000000.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="face_blur_strength"
+
+150
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Expected Response:
+### {
+###   "detail": "Face blur strength must be between 1 and 100"
+### }
+
+### ============================================
+### 14. BATCH PROCESSING EXAMPLE
+### ============================================
+
+### Process multiple images in sequence
+### (Use this pattern for batch processing)
+
+### Image 1
+POST {{base_url}}/detect
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000000.png"
+Content-Type: image/png
+
+< ./test_images/frame_000000.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Image 2
+POST {{base_url}}/detect
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000020.png"
+Content-Type: image/png
+
+< ./test_images/frame_000020.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### Image 3
+POST {{base_url}}/detect
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="frame_000030.png"
+Content-Type: image/png
+
+< ./test_images/frame_000030.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================
+### 15. PERFORMANCE TESTING
+### ============================================
+
+### Test with large image
+POST {{base_url}}/detect
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="file"; filename="large_image.jpg"
+Content-Type: image/jpeg
+
+< ./test_images/large_image.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_face"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="detect_license_plate"
+
+true
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================
+### 16. CURL EXAMPLES
+### ============================================
+
+### Health Check
+### curl -X GET "http://localhost:8000/health"
+
+### Detection
+### curl -X POST "http://localhost:8000/detect" \
+###   -F "file=@test_images/frame_000000.png" \
+###   -F "detect_face=true" \
+###   -F "detect_license_plate=true"
+
+### Blur
+### curl -X POST "http://localhost:8000/blur" \
+###   -F "file=@test_images/frame_000000.png" \
+###   -F "face_blur_strength=25" \
+###   -F "plate_blur_strength=20"
+
+### List Outputs
+### curl -X GET "http://localhost:8000/outputs"
+
+### Download File
+### curl -X GET "http://localhost:8000/download/filename.jpg" -o downloaded_file.jpg
+
+### ============================================
+### 17. PYTHON CLIENT EXAMPLE
+### ============================================
+
+### import requests
+### 
+### # Health check
+### response = requests.get("http://localhost:8000/health")
+### print(response.json())
+### 
+### # Detection
+### with open("test_images/frame_000000.png", "rb") as f:
+###     files = {"file": f}
+###     data = {"detect_face": True, "detect_license_plate": True}
+###     response = requests.post("http://localhost:8000/detect", files=files, data=data)
+###     print(response.json())
+### 
+### # Blur
+### with open("test_images/frame_000000.png", "rb") as f:
+###     files = {"file": f}
+###     data = {
+###         "detect_face": True,
+###         "detect_license_plate": True,
+###         "face_blur_strength": 25,
+###         "plate_blur_strength": 20
+###     }
+###     response = requests.post("http://localhost:8000/blur", files=files, data=data)
+###     print(response.json())
+
+### ============================================
+### 18. JAVASCRIPT CLIENT EXAMPLE
+### ============================================
+
+### // Health check
+### fetch("http://localhost:8000/health")
+###   .then(response => response.json())
+###   .then(data => console.log(data));
+### 
+### // Detection
+### const formData = new FormData();
+### formData.append("file", fileInput.files[0]);
+### formData.append("detect_face", "true");
+### formData.append("detect_license_plate", "true");
+### 
+### fetch("http://localhost:8000/detect", {
+###   method: "POST",
+###   body: formData
+### })
+### .then(response => response.json())
+### .then(data => console.log(data));
+
+### ============================================
+### 19. VARIABLES FOR REST CLIENT
+### ============================================
+
+@base_url = http://localhost:8000
+@test_image_1 = frame_000000.png
+@test_image_2 = frame_000020.png
+@test_image_3 = frame_000030.png
+@blur_strength_light = 10
+@blur_strength_medium = 25
+@blur_strength_strong = 50
+
+### ============================================
+### 20. NOTES AND TIPS
+### ============================================
+
+### 1. Server must be running before testing
+###    Start with: python main.py
+
+### 2. Test images should be in test_images/ folder
+###    Supported formats: PNG, JPG, JPEG
+
+### 3. Blur strength range: 1-100
+###    - 1-10: Light blur
+###    - 11-30: Medium blur
+###    - 31-100: Strong blur
+
+### 4. Processing time varies by image size and complexity
+###    Typical range: 1-5 seconds per image
+
+### 5. Output files are saved in output/ folder
+###    Files are automatically cleaned up after download
+
+### 6. For production use:
+###    - Use HTTPS
+###    - Implement authentication
+###    - Add rate limiting
+###    - Monitor performance
+
+### 7. API Documentation available at:
+###    - Swagger UI: http://localhost:8000/docs
+###    - ReDoc: http://localhost:8000/redoc
+
+### 8. Common error codes:
+###    - 400: Bad Request (invalid parameters)
+###    - 404: Not Found (file not found)
+###    - 500: Internal Server Error (processing error)
+
+### 9. Performance optimization:
+###    - Use smaller images for faster processing
+###    - Enable GPU acceleration if available
+###    - Implement caching for repeated requests
+
+### 10. Security considerations:
+###     - Validate file types and sizes
+###     - Implement file size limits
+###     - Use secure file storage
+###     - Add audit logging

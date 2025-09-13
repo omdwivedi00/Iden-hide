@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Buttons Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input[type="file"] { margin: 10px 0; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .image-container { margin: 20px 0; position: relative; display: inline-block; }
+        .image-container img { max-width: 100%; height: auto; border: 1px solid #ddd; }
+        .download-buttons { 
+            position: absolute; 
+            bottom: 10px; 
+            left: 10px; 
+            display: flex; 
+            gap: 8px; 
+            z-index: 10; 
+        }
+        .download-btn {
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .download-btn:hover {
+            background: rgba(0,0,0,0.9);
+        }
+        .status-badge {
+            font-size: 10px;
+            background: #28a745;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Download Buttons Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Upload Image and Process</h3>
+        <input type="file" id="imageFile" accept="image/*">
+        <div>
+            <button onclick="processImage()">Process Image</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Results</h3>
+        <div id="results"></div>
+        <div class="image-container">
+            <img id="displayImage" style="display: none;" alt="Processed image">
+            <div class="download-buttons" id="downloadButtons" style="display: none;">
+                <button class="download-btn" onclick="downloadOriginal()">📥 Download Original</button>
+                <button class="download-btn" onclick="downloadBlurred()" id="blurredBtn" style="display: none;">🔒 Download Blurred</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let currentImage = null;
+        let blurredImagePath = null;
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('displayImage').style.display = 'none';
+            document.getElementById('downloadButtons').style.display = 'none';
+            document.getElementById('blurredBtn').style.display = 'none';
+            currentImage = null;
+            blurredImagePath = null;
+        }
+
+        async function processImage() {
+            const fileInput = document.getElementById('imageFile');
+            if (!fileInput.files[0]) {
+                alert('Please select an image file first');
+                return;
+            }
+
+            try {
+                // Step 1: Detection
+                log('Step 1: Running detection...', 'info');
+                const detectionFormData = new FormData();
+                detectionFormData.append('file', fileInput.files[0]);
+                detectionFormData.append('detect_face', 'true');
+                detectionFormData.append('detect_license_plate', 'true');
+
+                const detectionResponse = await fetch(`${API_BASE_URL}/detect`, {
+                    method: 'POST',
+                    body: detectionFormData
+                });
+
+                const detectionData = await detectionResponse.json();
+                
+                if (!detectionResponse.ok) {
+                    throw new Error(`Detection failed: ${JSON.stringify(detectionData)}`);
+                }
+
+                currentImage = fileInput.files[0];
+                log(`Detection successful: ${detectionData.total_faces} faces, ${detectionData.total_license_plates} plates`, 'success');
+
+                // Step 2: Blur
+                log('Step 2: Running blur...', 'info');
+                const blurFormData = new FormData();
+                blurFormData.append('file', fileInput.files[0]);
+                blurFormData.append('detect_face', 'true');
+                blurFormData.append('detect_license_plate', 'true');
+                blurFormData.append('face_blur_strength', '25');
+                blurFormData.append('plate_blur_strength', '20');
+
+                const blurResponse = await fetch(`${API_BASE_URL}/blur`, {
+                    method: 'POST',
+                    body: blurFormData
+                });
+
+                const blurData = await blurResponse.json();
+                
+                if (!blurResponse.ok) {
+                    throw new Error(`Blur failed: ${JSON.stringify(blurData)}`);
+                }
+
+                blurredImagePath = blurData.blurred_image_path;
+                log(`Blur successful: ${blurData.message}`, 'success');
+
+                // Display image and show download buttons
+                displayImage();
+                showDownloadButtons();
+
+            } catch (error) {
+                log(`Processing error: ${error.message}`, 'error');
+            }
+        }
+
+        function displayImage() {
+            const img = document.getElementById('displayImage');
+            img.src = URL.createObjectURL(currentImage);
+            img.style.display = 'block';
+        }
+
+        function showDownloadButtons() {
+            document.getElementById('downloadButtons').style.display = 'flex';
+            if (blurredImagePath) {
+                document.getElementById('blurredBtn').style.display = 'block';
+                log('✅ Download buttons available: Original + Blurred', 'success');
+            } else {
+                log('✅ Download buttons available: Original only', 'info');
+            }
+        }
+
+        function downloadOriginal() {
+            if (!currentImage) return;
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(currentImage);
+            link.download = currentImage.name;
+            link.click();
+            
+            log('📥 Original image download started', 'success');
+        }
+
+        function downloadBlurred() {
+            if (!blurredImagePath) return;
+            
+            const filename = blurredImagePath.split('/').pop();
+            const url = `${API_BASE_URL}/download/${filename}`;
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `blurred_${currentImage.name}`;
+            link.click();
+            
+            log(`🔒 Blurred image download started: ${filename}`, 'success');
+        }
+
+        // Test on page load
+        window.onload = function() {
+            log('Page loaded. Upload an image and click "Process Image" to test download buttons.', 'info');
+        };
+    </script>
+</body>
+</html>

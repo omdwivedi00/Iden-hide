@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Fix Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input[type="file"] { margin: 10px 0; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .test-case { margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 3px; }
+        .error-details { background: #ffe6e6; padding: 10px; border-radius: 3px; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Download Fix Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Download API Service</h3>
+        <div>
+            <button onclick="testDownloadService()">Test Download Service</button>
+            <button onclick="testInvalidDownload()">Test Invalid Download</button>
+            <button onclick="testEmptyResponse()">Test Empty Response</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test FileUtils.downloadFile</h3>
+        <div>
+            <button onclick="testValidDownload()">Test Valid Download</button>
+            <button onclick="testInvalidBlob()">Test Invalid Blob</button>
+            <button onclick="testEmptyBlob()">Test Empty Blob</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Complete Flow</h3>
+        <div>
+            <input type="file" id="imageFile" accept="image/*">
+            <button onclick="testCompleteFlow()">Test Complete Flow</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function logError(message, error) {
+            const div = document.createElement('div');
+            div.className = 'result-item error';
+            div.innerHTML = `
+                <div>${message}</div>
+                <div class="error-details">
+                    <strong>Error Details:</strong><br>
+                    ${error.stack || error.message || error}
+                </div>
+            `;
+            document.getElementById('results').appendChild(div);
+        }
+
+        // Simulate the API service downloadImage function
+        async function downloadImage(filename) {
+            try {
+                console.log(`Attempting to download: ${filename}`);
+                
+                const response = await fetch(`${API_BASE_URL}/download/${filename}`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                    throw new Error(`HTTP ${response.status}: ${errorData.detail}`);
+                }
+                
+                const blob = await response.blob();
+                
+                // Check if response is successful
+                if (!blob) {
+                    throw new Error('No data received from server');
+                }
+                
+                // Validate that we have blob data
+                if (!(blob instanceof Blob)) {
+                    console.error('Response data is not a Blob:', blob);
+                    throw new Error('Invalid response format - expected blob data');
+                }
+                
+                // Check if blob has content
+                if (blob.size === 0) {
+                    throw new Error('Received empty file from server');
+                }
+                
+                console.log(`Download successful: ${blob.size} bytes`);
+                
+                // Create blob URL for download
+                const url = window.URL.createObjectURL(blob);
+                
+                return { success: true, data: { url, filename, size: blob.size } };
+            } catch (error) {
+                console.error('Download error:', error);
+                
+                // Provide more specific error messages
+                let errorMessage = error.message;
+                if (error.message.includes('404')) {
+                    errorMessage = `File '${filename}' not found on server`;
+                } else if (error.message.includes('500')) {
+                    errorMessage = 'Server error while downloading file';
+                } else if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Network error - cannot connect to server';
+                }
+                
+                return { success: false, error: errorMessage };
+            }
+        }
+
+        // Simulate the FileUtils.downloadFile function
+        function downloadFile(blob, filename) {
+            try {
+                // Validate inputs
+                if (!blob) {
+                    throw new Error('No blob data provided for download');
+                }
+                
+                if (!filename) {
+                    throw new Error('No filename provided for download');
+                }
+                
+                // Check if blob is valid
+                if (!(blob instanceof Blob)) {
+                    throw new Error('Invalid blob data - expected Blob object');
+                }
+                
+                if (blob.size === 0) {
+                    throw new Error('Cannot download empty file');
+                }
+                
+                console.log(`Downloading file: ${filename} (${blob.size} bytes)`);
+                
+                // Create object URL
+                const url = window.URL.createObjectURL(blob);
+                
+                // Create download link
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                link.style.display = 'none';
+                
+                // Add to DOM, click, and remove
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Clean up object URL
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                }, 1000);
+                
+                console.log(`Download initiated: ${filename}`);
+                
+            } catch (error) {
+                console.error('Download file error:', error);
+                throw new Error(`Download failed: ${error.message}`);
+            }
+        }
+
+        async function testDownloadService() {
+            log('Testing download service with valid file...', 'info');
+            
+            try {
+                const result = await downloadImage('frame_000000_1757766019_blurred.jpg');
+                
+                if (result.success) {
+                    log(`✅ Download service successful: ${result.data.size} bytes`, 'success');
+                } else {
+                    log(`❌ Download service failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                logError('Download service test failed:', error);
+            }
+        }
+
+        async function testInvalidDownload() {
+            log('Testing download service with invalid file...', 'info');
+            
+            try {
+                const result = await downloadImage('nonexistent_file.jpg');
+                
+                if (!result.success) {
+                    log(`✅ Invalid download handled correctly: ${result.error}`, 'success');
+                } else {
+                    log(`❌ Invalid download should have failed`, 'error');
+                }
+            } catch (error) {
+                logError('Invalid download test failed:', error);
+            }
+        }
+
+        async function testEmptyResponse() {
+            log('Testing empty response handling...', 'info');
+            
+            try {
+                // Simulate empty response
+                const result = await downloadImage('empty_file.jpg');
+                
+                if (!result.success) {
+                    log(`✅ Empty response handled correctly: ${result.error}`, 'success');
+                } else {
+                    log(`❌ Empty response should have failed`, 'error');
+                }
+            } catch (error) {
+                logError('Empty response test failed:', error);
+            }
+        }
+
+        function testValidDownload() {
+            log('Testing FileUtils.downloadFile with valid blob...', 'info');
+            
+            try {
+                // Create a test blob
+                const testData = 'This is test data for download';
+                const blob = new Blob([testData], { type: 'text/plain' });
+                
+                downloadFile(blob, 'test_file.txt');
+                log('✅ Valid download test passed', 'success');
+            } catch (error) {
+                logError('Valid download test failed:', error);
+            }
+        }
+
+        function testInvalidBlob() {
+            log('Testing FileUtils.downloadFile with invalid blob...', 'info');
+            
+            try {
+                downloadFile(null, 'test_file.txt');
+                log('❌ Invalid blob should have failed', 'error');
+            } catch (error) {
+                log(`✅ Invalid blob handled correctly: ${error.message}`, 'success');
+            }
+        }
+
+        function testEmptyBlob() {
+            log('Testing FileUtils.downloadFile with empty blob...', 'info');
+            
+            try {
+                const emptyBlob = new Blob([], { type: 'text/plain' });
+                downloadFile(emptyBlob, 'empty_file.txt');
+                log('❌ Empty blob should have failed', 'error');
+            } catch (error) {
+                log(`✅ Empty blob handled correctly: ${error.message}`, 'success');
+            }
+        }
+
+        async function testCompleteFlow() {
+            const fileInput = document.getElementById('imageFile');
+            if (!fileInput.files[0]) {
+                log('Please select an image file first', 'warning');
+                return;
+            }
+
+            log('Testing complete flow: upload → blur → download...', 'info');
+
+            try {
+                // Step 1: Upload and blur
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('detect_face', 'true');
+                formData.append('detect_license_plate', 'true');
+                formData.append('face_blur_strength', '25');
+                formData.append('plate_blur_strength', '20');
+
+                log('Step 1: Processing image...', 'info');
+                const blurResponse = await fetch(`${API_BASE_URL}/blur`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const blurData = await blurResponse.json();
+                
+                if (!blurResponse.ok) {
+                    throw new Error(`Blur failed: ${JSON.stringify(blurData)}`);
+                }
+
+                log(`Step 1 complete: ${blurData.message}`, 'success');
+
+                // Step 2: Download
+                log('Step 2: Downloading blurred image...', 'info');
+                const filename = blurData.blurred_image_path.split('/').pop();
+                
+                // Wait for file to be written
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                const downloadResult = await downloadImage(filename);
+                
+                if (downloadResult.success) {
+                    log('Step 2: Download successful, testing FileUtils...', 'info');
+                    
+                    // Step 3: Test FileUtils
+                    const response = await fetch(`${API_BASE_URL}/download/${filename}`);
+                    const blob = await response.blob();
+                    
+                    downloadFile(blob, `blurred_${fileInput.files[0].name}`);
+                    log('✅ Complete flow test successful!', 'success');
+                } else {
+                    log(`❌ Download failed: ${downloadResult.error}`, 'error');
+                }
+
+            } catch (error) {
+                logError('Complete flow test failed:', error);
+            }
+        }
+
+        // Test on page load
+        window.onload = function() {
+            log('Page loaded. Ready to test download fixes.', 'info');
+        };
+    </script>
+</body>
+</html>

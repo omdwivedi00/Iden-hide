@@ -1,0 +1,150 @@
+### S3 API Tests
+### Test S3 image processing endpoints
+
+@baseUrl = http://localhost:8000
+
+### Test S3 Credentials
+GET {{baseUrl}}/s3/test-credentials?aws_access_key_id=YOUR_ACCESS_KEY&aws_secret_access_key=YOUR_SECRET_KEY&aws_session_token=YOUR_SESSION_TOKEN
+
+### Test S3 Single Image Processing
+POST {{baseUrl}}/s3/process-single
+Content-Type: application/json
+
+{
+  "credentials": {
+    "aws_access_key_id": "YOUR_ACCESS_KEY",
+    "aws_secret_access_key": "YOUR_SECRET_KEY",
+    "aws_session_token": "YOUR_SESSION_TOKEN"
+  },
+  "input_s3_path": "s3://your-bucket/input/test-image.jpg",
+  "output_s3_path": "s3://your-bucket/output/test-image-blurred.jpg",
+  "detect_face": true,
+  "detect_license_plate": true,
+  "face_blur_strength": 25,
+  "plate_blur_strength": 20
+}
+
+### Test S3 Folder Processing
+POST {{baseUrl}}/s3/process-folder
+Content-Type: application/json
+
+{
+  "credentials": {
+    "aws_access_key_id": "YOUR_ACCESS_KEY",
+    "aws_secret_access_key": "YOUR_SECRET_KEY",
+    "aws_session_token": "YOUR_SESSION_TOKEN"
+  },
+  "input_s3_folder": "s3://your-bucket/input/",
+  "output_s3_folder": "s3://your-bucket/output/",
+  "detect_face": true,
+  "detect_license_plate": true,
+  "face_blur_strength": 25,
+  "plate_blur_strength": 20
+}
+
+### Test S3 Single Image with Environment Variables
+POST {{baseUrl}}/s3/process-single
+Content-Type: application/json
+
+{
+  "credentials": {
+    "aws_access_key_id": "{{$dotenv AWS_ACCESS_KEY_ID}}",
+    "aws_secret_access_key": "{{$dotenv AWS_SECRET_ACCESS_KEY}}",
+    "aws_session_token": "{{$dotenv AWS_SESSION_TOKEN}}"
+  },
+  "input_s3_path": "s3://my-detection-bucket/input/sample-image.jpg",
+  "output_s3_path": "s3://my-detection-bucket/output/sample-image-blurred.jpg",
+  "detect_face": true,
+  "detect_license_plate": true,
+  "face_blur_strength": 30,
+  "plate_blur_strength": 25
+}
+
+### Test S3 Folder with Environment Variables
+POST {{baseUrl}}/s3/process-folder
+Content-Type: application/json
+
+{
+  "credentials": {
+    "aws_access_key_id": "{{$dotenv AWS_ACCESS_KEY_ID}}",
+    "aws_secret_access_key": "{{$dotenv AWS_SECRET_ACCESS_KEY}}",
+    "aws_session_token": "{{$dotenv AWS_SESSION_TOKEN}}"
+  },
+  "input_s3_folder": "s3://my-detection-bucket/input/",
+  "output_s3_folder": "s3://my-detection-bucket/output/",
+  "detect_face": true,
+  "detect_license_plate": true,
+  "face_blur_strength": 30,
+  "plate_blur_strength": 25
+}
+
+### Test S3 Credentials with Environment Variables
+GET {{baseUrl}}/s3/test-credentials?aws_access_key_id={{$dotenv AWS_ACCESS_KEY_ID}}&aws_secret_access_key={{$dotenv AWS_SECRET_ACCESS_KEY}}&aws_session_token={{$dotenv AWS_SESSION_TOKEN}}
+
+### Test S3 Single Image - Face Detection Only
+POST {{baseUrl}}/s3/process-single
+Content-Type: application/json
+
+{
+  "credentials": {
+    "aws_access_key_id": "YOUR_ACCESS_KEY",
+    "aws_secret_access_key": "YOUR_SECRET_KEY"
+  },
+  "input_s3_path": "s3://your-bucket/input/face-only.jpg",
+  "output_s3_path": "s3://your-bucket/output/face-only-blurred.jpg",
+  "detect_face": true,
+  "detect_license_plate": false,
+  "face_blur_strength": 35,
+  "plate_blur_strength": 20
+}
+
+### Test S3 Single Image - License Plate Detection Only
+POST {{baseUrl}}/s3/process-single
+Content-Type: application/json
+
+{
+  "credentials": {
+    "aws_access_key_id": "YOUR_ACCESS_KEY",
+    "aws_secret_access_key": "YOUR_SECRET_KEY"
+  },
+  "input_s3_path": "s3://your-bucket/input/plate-only.jpg",
+  "output_s3_path": "s3://your-bucket/output/plate-only-blurred.jpg",
+  "detect_face": false,
+  "detect_license_plate": true,
+  "face_blur_strength": 25,
+  "plate_blur_strength": 30
+}
+
+### Test S3 Folder - High Blur Strength
+POST {{baseUrl}}/s3/process-folder
+Content-Type: application/json
+
+{
+  "credentials": {
+    "aws_access_key_id": "YOUR_ACCESS_KEY",
+    "aws_secret_access_key": "YOUR_SECRET_KEY"
+  },
+  "input_s3_folder": "s3://your-bucket/input/",
+  "output_s3_folder": "s3://your-bucket/output/",
+  "detect_face": true,
+  "detect_license_plate": true,
+  "face_blur_strength": 50,
+  "plate_blur_strength": 45
+}
+
+### Test S3 Folder - Low Blur Strength
+POST {{baseUrl}}/s3/process-folder
+Content-Type: application/json
+
+{
+  "credentials": {
+    "aws_access_key_id": "YOUR_ACCESS_KEY",
+    "aws_secret_access_key": "YOUR_SECRET_KEY"
+  },
+  "input_s3_folder": "s3://your-bucket/input/",
+  "output_s3_folder": "s3://your-bucket/output/",
+  "detect_face": true,
+  "detect_license_plate": true,
+  "face_blur_strength": 10,
+  "plate_blur_strength": 15
+}

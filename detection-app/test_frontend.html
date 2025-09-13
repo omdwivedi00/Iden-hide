@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blur API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input[type="file"] { margin: 10px 0; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Blur API Frontend Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Health Check</h3>
+        <button onclick="testHealth()">Test Health</button>
+        <div id="health-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. File Upload Test</h3>
+        <input type="file" id="imageFile" accept="image/*">
+        <button onclick="testDetection()">Test Detection</button>
+        <button onclick="testBlur()">Test Blur</button>
+        <div id="upload-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.json();
+                document.getElementById('health-result').innerHTML = 
+                    `<span class="success">✅ Server is running: ${JSON.stringify(data)}</span>`;
+                log('Health check successful', 'success');
+            } catch (error) {
+                document.getElementById('health-result').innerHTML = 
+                    `<span class="error">❌ Health check failed: ${error.message}</span>`;
+                log(`Health check failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDetection() {
+            const fileInput = document.getElementById('imageFile');
+            if (!fileInput.files[0]) {
+                alert('Please select an image file first');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('detect_face', 'true');
+                formData.append('detect_license_plate', 'true');
+
+                const response = await fetch(`${API_BASE_URL}/detect`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('upload-result').innerHTML = 
+                        `<span class="success">✅ Detection successful: ${data.total_faces} faces, ${data.total_license_plates} plates</span>`;
+                    log(`Detection successful: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    document.getElementById('upload-result').innerHTML = 
+                        `<span class="error">❌ Detection failed: ${JSON.stringify(data)}</span>`;
+                    log(`Detection failed: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (error) {
+                document.getElementById('upload-result').innerHTML = 
+                    `<span class="error">❌ Detection error: ${error.message}</span>`;
+                log(`Detection error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBlur() {
+            const fileInput = document.getElementById('imageFile');
+            if (!fileInput.files[0]) {
+                alert('Please select an image file first');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('detect_face', 'true');
+                formData.append('detect_license_plate', 'true');
+                formData.append('face_blur_strength', '25');
+                formData.append('plate_blur_strength', '20');
+
+                const response = await fetch(`${API_BASE_URL}/blur`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('upload-result').innerHTML = 
+                        `<span class="success">✅ Blur successful: ${data.message}</span>`;
+                    log(`Blur successful: ${JSON.stringify(data)}`, 'success');
+                    
+                    // Test download
+                    if (data.blurred_image_path) {
+                        const filename = data.blurred_image_path.split('/').pop();
+                        const downloadUrl = `${API_BASE_URL}/download/${filename}`;
+                        log(`Download URL: ${downloadUrl}`, 'info');
+                        
+                        // Test if download works
+                        try {
+                            const downloadResponse = await fetch(downloadUrl);
+                            if (downloadResponse.ok) {
+                                log(`Download test successful: ${downloadResponse.headers.get('content-type')}`, 'success');
+                            } else {
+                                log(`Download test failed: ${downloadResponse.status}`, 'error');
+                            }
+                        } catch (downloadError) {
+                            log(`Download test error: ${downloadError.message}`, 'error');
+                        }
+                    }
+                } else {
+                    document.getElementById('upload-result').innerHTML = 
+                        `<span class="error">❌ Blur failed: ${JSON.stringify(data)}</span>`;
+                    log(`Blur failed: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (error) {
+                document.getElementById('upload-result').innerHTML = 
+                    `<span class="error">❌ Blur error: ${error.message}</span>`;
+                log(`Blur error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-test health on load
+        window.onload = function() {
+            testHealth();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React Flow Test with js-file-download</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input[type="file"] { margin: 10px 0; }
+        #results { margin-top: 20px; }
+        .result-item { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .flow-step { margin: 10px 0; padding: 10px; border-left: 4px solid #4CAF50; background: #f9f9f9; }
+        .loading { opacity: 0.6; pointer-events: none; }
+    </style>
+    <script src="https://unpkg.com/js-file-download@0.4.12/dist/js-file-download.min.js"></script>
+</head>
+<body>
+    <h1>⚛️ React Flow Test with js-file-download</h1>
+    
+    <div class="test-section">
+        <h3>1. Complete React App Flow Simulation</h3>
+        <div>
+            <input type="file" id="imageFile" accept="image/*">
+            <button onclick="testCompleteFlow()" id="flowBtn">Test Complete Flow</button>
+            <button onclick="clearResults()">Clear Results</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Flow Steps</h3>
+        <div id="flowSteps"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let isProcessing = false;
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result-item ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+
+        function logStep(step, message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `flow-step ${type}`;
+            div.innerHTML = `<strong>Step ${step}:</strong> ${message}`;
+            document.getElementById('flowSteps').appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('flowSteps').innerHTML = '';
+            document.getElementById('flowBtn').disabled = false;
+            isProcessing = false;
+        }
+
+        function setLoading(loading) {
+            const btn = document.getElementById('flowBtn');
+            btn.disabled = loading;
+            btn.textContent = loading ? 'Processing...' : 'Test Complete Flow';
+            isProcessing = loading;
+        }
+
+        // Simulate the exact React app flow
+        async function testCompleteFlow() {
+            const fileInput = document.getElementById('imageFile');
+            if (!fileInput.files[0]) {
+                alert('Please select an image file first');
+                return;
+            }
+
+            if (isProcessing) {
+                log('Already processing...', 'warning');
+                return;
+            }
+
+            setLoading(true);
+            clearResults();
+
+            try {
+                logStep(1, 'Starting complete React app flow simulation...', 'info');
+                log('🚀 Starting Complete Flow Test', 'info');
+
+                // Step 1: Upload and blur (simulating React app)
+                logStep(2, 'Uploading image and running blur processing...', 'info');
+                
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('detect_face', 'true');
+                formData.append('detect_license_plate', 'true');
+                formData.append('face_blur_strength', '25');
+                formData.append('plate_blur_strength', '20');
+
+                const blurResponse = await fetch(`${API_BASE_URL}/blur`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const blurData = await blurResponse.json();
+                
+                if (!blurResponse.ok) {
+                    throw new Error(`Blur failed: ${JSON.stringify(blurData)}`);
+                }
+
+                logStep(3, `Blur processing complete: ${blurData.message}`, 'success');
+                log(`✅ Blur successful: ${blurData.message}`, 'success');
+
+                // Step 2: Wait for file to be written (React app behavior)
+                logStep(4, 'Waiting for blur file to be written...', 'info');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Step 3: Download with retry mechanism (React app behavior)
+                logStep(5, 'Starting download with retry mechanism...', 'info');
+                
+                const filename = blurData.blurred_image_path.split('/').pop();
+                const downloadResult = await downloadWithRetry(filename, 3);
+                
+                if (downloadResult.success) {
+                    logStep(6, 'Download successful, using js-file-download...', 'success');
+                    
+                    // Step 4: Use js-file-download (new React app behavior)
+                    const { blob, filename: downloadedFilename, size } = downloadResult.data;
+                    
+                    // Simulate FileUtils.downloadFile with js-file-download
+                    try {
+                        fileDownload(blob, `blurred_${fileInput.files[0].name}`);
+                        logStep(7, `Download initiated: ${downloadedFilename} (${Math.round(size/1024)}KB)`, 'success');
+                        log(`✅ Complete flow successful! File downloaded: ${Math.round(size/1024)}KB`, 'success');
+                    } catch (downloadError) {
+                        logStep(7, `Download failed: ${downloadError.message}`, 'error');
+                        log(`❌ Download error: ${downloadError.message}`, 'error');
+                    }
+                } else {
+                    logStep(6, `Download failed: ${downloadResult.error}`, 'error');
+                    log(`❌ Download failed: ${downloadResult.error}`, 'error');
+                }
+
+            } catch (error) {
+                logStep('Error', `Flow failed: ${error.message}`, 'error');
+                log(`❌ Flow failed: ${error.message}`, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        // Simulate the downloadWithRetry function from React app
+        async function downloadWithRetry(filename, maxRetries = 3) {
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    log(`Download attempt ${attempt}/${maxRetries} for ${filename}`, 'info');
+                    
+                    const response = await fetch(`${API_BASE_URL}/download/${filename}`);
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                        throw new Error(`HTTP ${response.status}: ${errorData.detail}`);
+                    }
+                    
+                    const blob = await response.blob();
+                    
+                    if (!blob || blob.size === 0) {
+                        throw new Error('Invalid or empty blob received');
+                    }
+                    
+                    log(`✅ Download successful on attempt ${attempt}: ${blob.size} bytes`, 'success');
+                    return { 
+                        success: true, 
+                        data: { 
+                            blob, 
+                            filename, 
+                            size: blob.size 
+                        } 
+                    };
+                    
+                } catch (error) {
+                    log(`❌ Attempt ${attempt} failed: ${error.message}`, 'error');
+                    
+                    if (attempt < maxRetries) {
+                        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+                        log(`Waiting ${delay}ms before retry...`, 'info');
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        return { 
+                            success: false, 
+                            error: `All ${maxRetries} attempts failed. Last error: ${error.message}` 
+                        };
+                    }
+                }
+            }
+        }
+
+        // Test on page load
+        window.onload = function() {
+            log('Page loaded. Ready to test complete React app flow with js-file-download.', 'info');
+            
+            // Check if library is loaded
+            if (typeof fileDownload === 'function') {
+                log('✅ js-file-download library loaded successfully', 'success');
+            } else {
+                log('❌ js-file-download library not loaded', 'error');
+            }
+        };
+    </script>
+</body>
+</html>
