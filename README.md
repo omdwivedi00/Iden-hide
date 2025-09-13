@@ -1,4 +1,14 @@
-# Production Backup - Unified Detection System
+# Iden-Hide
+
+Faceplate is an AI-powered anonymization toolkit that automatically detects and anonymizes **faces** and **license plates** in images and videos.  
+It's designed for researchers, developers, and companies who need to share visual data without compromising privacy.
+
+✨ **Features**
+- 🔍 Detects faces and license plates with high accuracy
+- 🕶️ Applies blur, pixelation, or masking
+- 🎥 Works on both images and videos
+- ⚡ Built with deep learning for real-time performance
+- 🔒 Ensures privacy compliance (GDPR, HIPAA, etc.)
 
 This folder contains a complete backup of the unified detection system with both backend and frontend components.
 
@@ -30,6 +40,30 @@ This folder contains a complete backup of the unified detection system with both
 - Node.js 16 or higher
 - npm or yarn
 - Git
+
+## 🤖 Model Downloads
+
+The AI models are not included in this repository due to their large size. You need to download them separately:
+
+### Required Models
+Download the following model files from [Google Drive](https://drive.google.com/drive/folders/1_uy-8pJOlFJV5eoZlzm85cGulOeLhaAX?usp=sharing):
+
+1. **yolov8n.pt** (~6MB) - YOLO v8 nano for face detection
+2. **yolo11n.pt** (~5MB) - YOLO v11 nano for object detection  
+3. **license_plate_detector.pt** (~6MB) - Custom license plate detection model
+
+### Installation
+```bash
+# Create models directory
+mkdir -p unified_detection_production/models/
+
+# Download models from Google Drive and place them in:
+# unified_detection_production/models/yolov8n.pt
+# unified_detection_production/models/yolo11n.pt  
+# unified_detection_production/models/license_plate_detector.pt
+```
+
+**Note:** The `yolov8x.pt` model (131MB) is excluded to keep the repository lightweight. The system will work with the smaller models listed above.
 
 ## 🔧 Backend Features
 
