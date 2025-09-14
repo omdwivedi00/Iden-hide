@@ -120,9 +120,9 @@ def detect_faces_in_tile(face_app, img, xyxy, face_size, thr, flip_tta=False):
 def run(
     source, out_path,
     # YOLO (person)
-    yolo_w='yolo11n.pt', pconf=0.25, imgsz=832, person_nms_iou=0.60,
+    yolo_w='yolov8x.pt', pconf=0.25, imgsz=832, person_nms_iou=0.60,
     # SCRFD
-    face_size=1600, fthr=0.20, flip_tta=False,
+    face_size=640, fthr=0.20, flip_tta=True,
     # person ROI + fixed tiling
     roi_scale=1.10, roi_square=False, grid="2x2", overlap=0.30,
     # gating
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     ap.add_argument("--imgsz", type=int, default=832, help="YOLO inference size")
     ap.add_argument("--person_nms_iou", type=float, default=0.60, help="extra NMS to dedupe YOLO persons")
     # SCRFD
-    ap.add_argument("--fsize", type=int, default=1600, help="SCRFD canvas (square)")
+    ap.add_argument("--fsize", type=int, default=1280, help="SCRFD canvas (square)")
     ap.add_argument("--fthr",  type=float, default=0.20, help="SCRFD detection threshold")
     ap.add_argument("--flip_tta", action="store_true", help="flip-TTA inside tiles")
     # ROI + tiling
