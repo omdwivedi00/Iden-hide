@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
+import ImageViewer from './ImageViewer';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -206,6 +207,34 @@ const FullScreenViewer = ({
   onIndexChange 
 }) => {
   const [showThumbnails, setShowThumbnails] = useState(false);
+  const [imageViewerSettings, setImageViewerSettings] = useState({
+    showBoundingBoxes: true,
+    showLabels: true,
+    showBlurred: false
+  });
+
+  // Image viewer control functions
+  const toggleBoundingBoxes = useCallback(() => {
+    setImageViewerSettings(prev => ({
+      ...prev,
+      showBoundingBoxes: !prev.showBoundingBoxes
+    }));
+  }, []);
+
+  const toggleLabels = useCallback(() => {
+    setImageViewerSettings(prev => ({
+      ...prev,
+      showLabels: !prev.showLabels
+    }));
+  }, []);
+
+  const toggleBlurred = useCallback(() => {
+    setImageViewerSettings(prev => ({
+      ...prev,
+      showBlurred: !prev.showBlurred
+    }));
+  }, []);
+
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback((event) => {
@@ -268,20 +297,20 @@ const FullScreenViewer = ({
   };
 
   const downloadOriginal = () => {
-    if (currentImage.originalFile) {
+    if (currentImage.file) {
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(currentImage.originalFile);
-      link.download = currentImage.originalFile.name;
+      link.href = URL.createObjectURL(currentImage.file);
+      link.download = currentImage.filename;
       link.click();
     }
   };
 
   const downloadBlurred = () => {
-    if (currentImage.blur?.blurred_image_path) {
-      const filename = currentImage.blur.blurred_image_path.split('/').pop();
+    if (currentImage.blurred?.blurred_image_path) {
+      const filename = currentImage.blurred.blurred_image_path.split('/').pop();
       const link = document.createElement('a');
       link.href = `http://localhost:8000/download/${filename}`;
-      link.download = `blurred_${currentImage.originalFile.name}`;
+      link.download = `blurred_${currentImage.filename}`;
       link.click();
     }
   };
@@ -303,10 +332,18 @@ const FullScreenViewer = ({
             ‹
           </NavigationButton>
 
-          <MainImage
-            src={URL.createObjectURL(currentImage.originalFile)}
-            alt={currentImage.originalFile.name}
-          />
+          <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%' }}>
+            <ImageViewer
+              image={currentImage}  // Pass the entire image object like in single image processing
+              detections={currentImage.detection?.detections || []}  // Use the same structure as single image
+              showBoundingBoxes={imageViewerSettings.showBoundingBoxes}
+              showLabels={imageViewerSettings.showLabels}
+              showBlurred={imageViewerSettings.showBlurred}
+              onToggleBoundingBoxes={toggleBoundingBoxes}
+              onToggleLabels={toggleLabels}
+              onToggleBlurred={toggleBlurred}
+            />
+          </div>
 
           <NavigationButton
             className="next"
@@ -319,7 +356,7 @@ const FullScreenViewer = ({
         </ImageContainer>
 
         <ImageInfo>
-          <ImageTitle>{currentImage.originalFile.name}</ImageTitle>
+          <ImageTitle>{currentImage.filename}</ImageTitle>
           
           <ImageCounter>
             {currentIndex + 1} of {images.length}
@@ -336,7 +373,7 @@ const FullScreenViewer = ({
             </StatItem>
             <StatItem>
               <span>📏</span>
-              <span>{(currentImage.originalFile.size / 1024).toFixed(1)} KB</span>
+              <span>{(currentImage.file.size / 1024).toFixed(1)} KB</span>
             </StatItem>
           </ImageStats>
 
@@ -344,7 +381,7 @@ const FullScreenViewer = ({
             <ActionButton onClick={downloadOriginal}>
               📥 Download Original
             </ActionButton>
-            {currentImage.blur?.blurred_image_path && (
+            {currentImage.blurred?.blurred_image_path && (
               <ActionButton onClick={downloadBlurred}>
                 🔒 Download Blurred
               </ActionButton>
@@ -362,11 +399,11 @@ const FullScreenViewer = ({
               {images.map((image, index) => (
                 <Thumbnail
                   key={index}
-                  src={URL.createObjectURL(image.originalFile)}
-                  alt={image.originalFile.name}
+                  src={image.preview}
+                  alt={image.filename}
                   active={index === currentIndex}
                   onClick={() => handleThumbnailClick(index)}
-                  title={image.originalFile.name}
+                  title={image.filename}
                 />
               ))}
             </ThumbnailStrip>

@@ -5,6 +5,7 @@ Processes images from S3, applies detection and blur, uploads results back to S3
 
 import os
 import boto3
+from boto3.session import Config
 import tempfile
 import json
 from pathlib import Path
@@ -56,7 +57,7 @@ class S3ImageProcessor:
                 session_kwargs['aws_session_token'] = self.aws_session_token
             
             session = boto3.Session(**session_kwargs)
-            s3_client = session.client('s3')
+            s3_client = session.client('s3', config=Config(s3={'addressing_style': 'virtual'}))
             
             # Test connection
             s3_client.list_buckets()

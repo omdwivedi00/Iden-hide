@@ -84,6 +84,35 @@ class DetectLP:
         
         return plates
 
+    def _filter_plates_by_size(self, plates, vehicle_bbox):
+        """
+        Filter license plates by size - plates shouldn't exceed 30% of vehicle area
+        
+        Args:
+            plates: List of detected plates in ROI coordinates
+            vehicle_bbox: Vehicle bounding box [x1, y1, x2, y2]
+            
+        Returns:
+            List of plates that meet the size criteria
+        """
+        vx1, vy1, vx2, vy2 = vehicle_bbox
+        vehicle_area = (vx2 - vx1) * (vy2 - vy1)
+        max_plate_area = vehicle_area * 0.30  # 30% of vehicle area
+        
+        filtered_plates = []
+        
+        for plate in plates:
+            px1, py1, px2, py2 = plate['bbox']
+            plate_area = (px2 - px1) * (py2 - py1)
+            
+            if plate_area <= max_plate_area:
+                filtered_plates.append(plate)
+            else:
+                plate_percentage = (plate_area / vehicle_area) * 100
+                print(f"  Plate filtered: area={plate_area:.0f}px² ({plate_percentage:.1f}% of vehicle), max allowed=30%")
+        
+        return filtered_plates
+
     def process_image_plates_only(self, image):
         """Process image to detect license plates only"""
         # Step 1: Detect vehicles
@@ -105,9 +134,17 @@ class DetectLP:
                     valid_plates = [p for p in plates if p['confidence'] >= self.plate_conf_threshold]
                     
                     if valid_plates:
-                        # Sort plates by confidence in descending order
-                        plates_sorted = sorted(valid_plates, key=lambda x: x['confidence'], reverse=True)
-                        best_plate = plates_sorted[0]  # Take the plate with highest confidence
+                        # Filter plates by size - license plate shouldn't be >30% of vehicle area
+                        size_filtered_plates = self._filter_plates_by_size(valid_plates, vehicle_bbox)
+                        
+                        if size_filtered_plates:
+                            # Sort plates by confidence in descending order
+                            plates_sorted = sorted(size_filtered_plates, key=lambda x: x['confidence'], reverse=True)
+                            best_plate = plates_sorted[0]  # Take the plate with highest confidence
+                        else:
+                            # No plates meet the size criteria
+                            print(f"Vehicle {i+1}: All {len(valid_plates)} plates filtered out due to size (exceed 30% of vehicle area)")
+                            continue
                         
                         # Convert ROI coordinates back to image coordinates
                         vx1, vy1, vx2, vy2 = vehicle_bbox
@@ -165,21 +202,34 @@ class DetectLP:
             if roi is not None:
                 plates = self.detect_plates_in_roi(roi)
                 
-                # Convert ROI coordinates back to image coordinates
-                vx1, vy1, vx2, vy2 = vehicle_bbox
-                for plate in plates:
-                    px1, py1, px2, py2 = plate['bbox']
-                    # Map back to original image coordinates
-                    global_bbox = [
-                        vx1 + px1,
-                        vy1 + py1,
-                        vx1 + px2,
-                        vy1 + py2
-                    ]
-                    all_plates.append({
-                        'bbox': global_bbox,
-                        'confidence': plate['confidence']
-                    })
+                # Filter out plates with very low confidence
+                valid_plates = [p for p in plates if p['confidence'] >= self.plate_conf_threshold]
+                
+                if valid_plates:
+                    # Filter plates by size - license plate shouldn't be >30% of vehicle area
+                    size_filtered_plates = self._filter_plates_by_size(valid_plates, vehicle_bbox)
+                    
+                    # Convert ROI coordinates back to image coordinates
+                    vx1, vy1, vx2, vy2 = vehicle_bbox
+                    for plate in size_filtered_plates:
+                        px1, py1, px2, py2 = plate['bbox']
+                        # Map back to original image coordinates
+                        global_bbox = [
+                            vx1 + px1,
+                            vy1 + py1,
+                            vx1 + px2,
+                            vy1 + py2
+                        ]
+                        all_plates.append({
+                            'bbox': global_bbox,
+                            'confidence': plate['confidence']
+                        })
+                    
+                    # Log filtering results
+                    if len(plates) > len(valid_plates):
+                        print(f"Vehicle {i+1}: {len(plates) - len(valid_plates)} plates filtered out due to low confidence")
+                    if len(valid_plates) > len(size_filtered_plates):
+                        print(f"Vehicle {i+1}: {len(valid_plates) - len(size_filtered_plates)} plates filtered out due to size (exceed 30% of vehicle area)")
                 
                 if len(plates) > 1:
                     print(f"Vehicle {i+1}: Found {len(plates)} plates (all returned)")

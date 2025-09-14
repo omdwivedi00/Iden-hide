@@ -80,6 +80,30 @@ export const s3Service = {
   },
 
   /**
+   * Process all images in an S3 folder using parallel processing
+   * @param {Object} requestData - S3 folder processing request
+   * @param {number} maxWorkers - Number of parallel workers (default: 4)
+   * @returns {Promise<Object>} Processing result
+   */
+  async processFolderParallel(requestData, maxWorkers = 4) {
+    try {
+      const requestWithWorkers = {
+        ...requestData,
+        max_workers: Math.min(maxWorkers, 8) // Cap at 8 workers
+      };
+      
+      const response = await s3ApiClient.post('/s3/process-folder-parallel', requestWithWorkers);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('S3 parallel folder processing error:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.message || error.message 
+      };
+    }
+  },
+
+  /**
    * Get S3 folder contents (custom endpoint for listing files)
    * @param {Object} credentials - AWS credentials
    * @param {string} s3FolderPath - S3 folder path

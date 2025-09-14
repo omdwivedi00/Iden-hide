@@ -109,6 +109,13 @@ const ImageViewer = ({
   const imageRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
 
+  // Get detections for the current image (original or blurred)
+  const getCurrentDetections = useCallback(() => {
+    // Always use the original detections since blurred images should have the same dimensions
+    // and the detection coordinates should still be valid
+    return detections || [];
+  }, [detections]);
+
   // Draw bounding boxes on canvas
   const drawBoundingBoxes = useCallback(() => {
     if (!imageLoaded || !canvasRef.current || !imageRef.current) return;
@@ -123,10 +130,11 @@ const ImageViewer = ({
     // Draw the image
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    if (!showBoundingBoxes || !detections || detections.length === 0) return;
+    const currentDetections = getCurrentDetections();
+    if (!showBoundingBoxes || !currentDetections || currentDetections.length === 0) return;
 
     // Draw bounding boxes
-    detections.forEach((detection, index) => {
+    currentDetections.forEach((detection, index) => {
       const { x1, y1, x2, y2, label, confidence } = detection;
       
       // Choose color based on label
@@ -154,7 +162,7 @@ const ImageViewer = ({
         ctx.fillText(labelText, x1 + 5, y1 - 5);
       }
     });
-  }, [imageLoaded, detections, showBoundingBoxes, showLabels]);
+  }, [imageLoaded, showBoundingBoxes, showLabels, getCurrentDetections]);
 
   // Handle image load
   const handleImageLoad = () => {
@@ -171,12 +179,18 @@ const ImageViewer = ({
     return image.preview || image.url;
   };
 
+
   // Update canvas when image or settings change
   useEffect(() => {
     if (imageLoaded) {
       drawBoundingBoxes();
     }
   }, [imageLoaded, detections, showBoundingBoxes, showLabels, showBlurred, drawBoundingBoxes]);
+
+  // Reset image loaded state when image source changes
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [showBlurred, image.blurred]);
 
   // Set canvas size when image loads
   useEffect(() => {
@@ -300,14 +314,14 @@ const ImageViewer = ({
           )}
         </div>
 
-        {detections && detections.length > 0 && (
+        {getCurrentDetections() && getCurrentDetections().length > 0 && (
           <DetectionInfo>
             <DetectionStats>
-              <span>Faces: {detections.filter(d => d.label === 'face').length}</span>
-              <span>License Plates: {detections.filter(d => d.label === 'license_plate').length}</span>
+              <span>Faces: {getCurrentDetections().filter(d => d.label === 'face').length}</span>
+              <span>License Plates: {getCurrentDetections().filter(d => d.label === 'license_plate').length}</span>
             </DetectionStats>
             
-            {detections.map((detection, index) => (
+            {getCurrentDetections().map((detection, index) => (
               <DetectionItem key={index}>
                 <DetectionLabel type={detection.label}>
                   {detection.label}

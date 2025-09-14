@@ -352,6 +352,10 @@ const S3Processor = ({
   // Image viewer
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  
+  // Parallel processing settings
+  const [useParallelProcessing, setUseParallelProcessing] = useState(false);
+  const [maxWorkers, setMaxWorkers] = useState(4);
 
   // Test credentials
   const testCredentials = useCallback(async () => {
@@ -503,7 +507,9 @@ const S3Processor = ({
         plate_blur_strength: plateBlurStrength
       };
 
-      const result = await s3Service.processFolder(requestData);
+      const result = useParallelProcessing 
+        ? await s3Service.processFolderParallel(requestData, maxWorkers)
+        : await s3Service.processFolder(requestData);
       
       if (result.success) {
         setProgress(100);
@@ -623,6 +629,53 @@ const S3Processor = ({
             Folder Processing
           </CheckboxLabel>
         </CheckboxGroup>
+        
+        {/* Parallel Processing Options */}
+        <div style={{ marginTop: '20px', padding: '15px', background: '#f8f9fa', borderRadius: '8px' }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>⚡ Processing Options</h3>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={useParallelProcessing}
+                onChange={(e) => setUseParallelProcessing(e.target.checked)}
+                disabled={isProcessing}
+              />
+              <span style={{ fontWeight: '500' }}>Use Parallel Processing</span>
+            </label>
+            
+            {useParallelProcessing && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontSize: '14px', color: '#666' }}>Workers:</label>
+                <select
+                  value={maxWorkers}
+                  onChange={(e) => setMaxWorkers(parseInt(e.target.value))}
+                  disabled={isProcessing}
+                  style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                >
+                  <option value={2}>2</option>
+                  <option value={4}>4</option>
+                  <option value={6}>6</option>
+                  <option value={8}>8</option>
+                </select>
+              </div>
+            )}
+          </div>
+          
+          {useParallelProcessing && (
+            <div style={{ 
+              padding: '10px', 
+              background: '#fff3cd', 
+              border: '1px solid #ffeaa7', 
+              borderRadius: '4px',
+              fontSize: '14px',
+              color: '#856404'
+            }}>
+              ⚠️ <strong>Warning:</strong> Parallel processing may use more system resources and could potentially affect detection accuracy due to concurrent model loading. Use for faster processing of large batches.
+            </div>
+          )}
+        </div>
       </Section>
 
       {/* Single Image Processing */}
@@ -662,7 +715,10 @@ const S3Processor = ({
               onClick={processSingleImage}
               disabled={!credentialsValid || isProcessing}
             >
-              {isProcessing ? '⏳ Processing...' : '🚀 Process Image'}
+              {isProcessing 
+                ? (useParallelProcessing ? '⚡ Processing in parallel...' : '⏳ Processing...') 
+                : (useParallelProcessing ? '⚡ Process Image (Parallel)' : '🚀 Process Image (Sequential)')
+              }
             </ControlButton>
           </Controls>
         </Section>
@@ -714,7 +770,10 @@ const S3Processor = ({
                 onClick={processFolder}
                 disabled={!credentialsValid || totalFiles === 0 || isProcessing}
               >
-                {isProcessing ? '⏳ Processing...' : '🚀 Process Folder'}
+                {isProcessing 
+                  ? (useParallelProcessing ? '⚡ Processing in parallel...' : '⏳ Processing...') 
+                  : (useParallelProcessing ? '⚡ Process Folder (Parallel)' : '🚀 Process Folder (Sequential)')
+                }
               </ControlButton>
             </Controls>
           </Section>

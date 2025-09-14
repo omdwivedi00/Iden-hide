@@ -6,7 +6,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import os
 from pathlib import Path
 
@@ -17,6 +17,7 @@ from models import (
 )
 from detection_service import DetectionService
 from s3_service import S3ProcessingService
+from parallel_processor import get_parallel_processor
 from urllib.parse import urlparse
 
 # Initialize FastAPI app
@@ -184,6 +185,60 @@ async def download_file(filename: str):
         media_type='image/jpeg'
     )
 
+@app.post("/process-parallel")
+async def process_images_parallel(
+    files: List[UploadFile] = File(..., description="Image files to process"),
+    detect_face: bool = Form(True, description="Whether to detect faces"),
+    detect_license_plate: bool = Form(True, description="Whether to detect license plates"),
+    enable_blur: bool = Form(False, description="Whether to apply blur"),
+    face_blur_strength: int = Form(25, description="Blur strength for faces"),
+    plate_blur_strength: int = Form(20, description="Blur strength for license plates"),
+    max_workers: int = Form(4, description="Maximum number of parallel workers")
+):
+    """Process multiple images in parallel for faster processing"""
+    try:
+        # Validate files
+        if not files:
+            raise HTTPException(status_code=400, detail="No files provided")
+        
+        # Limit max workers to prevent resource exhaustion
+        max_workers = min(max_workers, 8)  # Cap at 8 workers
+        
+        # Prepare file data
+        file_data_list = []
+        for file in files:
+            if not file.content_type.startswith('image/'):
+                continue  # Skip non-image files
+            
+            file_content = await file.read()
+            file_data_list.append({
+                'content': file_content,
+                'filename': file.filename
+            })
+        
+        if not file_data_list:
+            raise HTTPException(status_code=400, detail="No valid image files provided")
+        
+        # Get parallel processor
+        parallel_processor = get_parallel_processor(max_workers)
+        
+        # Process images in parallel
+        result = parallel_processor.process_images_parallel(
+            files=file_data_list,
+            detect_face=detect_face,
+            detect_license_plate=detect_license_plate,
+            enable_blur=enable_blur,
+            face_blur_strength=face_blur_strength,
+            plate_blur_strength=plate_blur_strength
+        )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 @app.get("/outputs")
 async def list_output_files():
     """List all available output files"""
@@ -240,6 +295,41 @@ async def process_s3_folder(request: S3FolderRequest):
     """
     try:
         result = s3_service.process_folder(request.dict())
+        return result
+    except Exception as e:
+        return S3FolderResponse(
+            success=False,
+            message=f"API error: {str(e)}",
+            input_folder=request.input_s3_folder,
+            output_folder=request.output_s3_folder,
+            total_images=0,
+            successful_count=0,
+            failed_count=0,
+            results=[],
+            total_processing_time_seconds=0.0,
+            average_time_per_image=0.0
+        )
+
+@app.post("/s3/process-folder-parallel", response_model=S3FolderResponse)
+async def process_s3_folder_parallel(request: S3FolderRequest):
+    """
+    Process all images in an S3 folder using parallel processing for faster results
+    
+    - **credentials**: AWS S3 credentials
+    - **input_s3_folder**: S3 folder path containing input images (e.g., s3://bucket/input/)
+    - **output_s3_folder**: S3 folder path for output images (e.g., s3://bucket/output/)
+    - **detect_face**: Whether to detect faces (default: True)
+    - **detect_license_plate**: Whether to detect license plates (default: True)
+    - **face_blur_strength**: Blur strength for faces (default: 25)
+    - **plate_blur_strength**: Blur strength for license plates (default: 20)
+    - **max_workers**: Number of parallel workers (default: 4, max: 8)
+    """
+    try:
+        # Add max_workers parameter to request data
+        request_data = request.dict()
+        request_data['max_workers'] = min(request_data.get('max_workers', 4), 8)  # Cap at 8 workers
+        
+        result = s3_service.process_folder_parallel(request_data)
         return result
     except Exception as e:
         return S3FolderResponse(
@@ -315,6 +405,7 @@ async def view_s3_image(request: S3ViewRequest):
     """
     try:
         import boto3
+        from boto3.session import Config
         from botocore.exceptions import ClientError
         
         # Parse S3 URI to extract bucket and key
@@ -336,7 +427,8 @@ async def view_s3_image(request: S3ViewRequest):
             aws_access_key_id=request.credentials.aws_access_key_id,
             aws_secret_access_key=request.credentials.aws_secret_access_key,
             aws_session_token=request.credentials.aws_session_token,
-            region_name='ap-south-1'  # Default region
+            region_name='ap-south-1',  # Default region
+            config=Config(s3={'addressing_style': 'virtual'})  # Use virtual-hosted-style URLs
         )
         
         # Generate presigned URL

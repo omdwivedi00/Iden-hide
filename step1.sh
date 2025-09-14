@@ -1,4 +1,4 @@
-#!/bin/bash
+i#!/bin/bash
 
 # Step 1: Start Backend Server
 # This script starts the Python backend server

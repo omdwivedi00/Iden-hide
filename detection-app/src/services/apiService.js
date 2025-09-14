@@ -213,6 +213,56 @@ class ApiService {
     
     return { success: true, data: results };
   }
+
+  /**
+   * Process multiple images in parallel for faster processing
+   * @param {FileList} files - List of image files
+   * @param {Object} options - Processing options
+   */
+  async processBatchParallel(files, options = {}) {
+    try {
+      const formData = new FormData();
+      
+      // Add all files
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+      
+      // Add processing options
+      formData.append('detect_face', options.detectFace !== false);
+      formData.append('detect_license_plate', options.detectLicensePlate !== false);
+      formData.append('enable_blur', options.enableBlur || false);
+      formData.append('face_blur_strength', options.faceBlurStrength || 25);
+      formData.append('plate_blur_strength', options.plateBlurStrength || 20);
+      formData.append('max_workers', options.maxWorkers || 4);
+
+      // Set longer timeout for parallel processing
+      const response = await apiClient.post('/process-parallel', formData, {
+        timeout: 300000, // 5 minutes timeout
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      });
+      
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Parallel processing error:', error);
+      
+      let errorMessage = 'Parallel processing failed';
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Request timeout - parallel processing took too long';
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      return { 
+        success: false, 
+        error: errorMessage
+      };
+    }
+  }
 }
 
 // Create and export singleton instance

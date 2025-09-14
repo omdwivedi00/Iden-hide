@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import JSZip from 'jszip';
 import apiService from '../services/apiService';
 import FullScreenViewer from './FullScreenViewer';
+import ImageViewer from './ImageViewer';
 
 const FolderContainer = styled.div`
   max-width: 1200px;
@@ -277,6 +278,14 @@ const FolderProcessor = ({
   // Full-screen viewer state
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  
+  // Image viewer settings for each result
+  const [imageViewerSettings, setImageViewerSettings] = useState({});
+  
+  // Parallel processing settings
+  const [useParallelProcessing, setUseParallelProcessing] = useState(false);
+  const [maxWorkers, setMaxWorkers] = useState(4);
+  const [showParallelWarning, setShowParallelWarning] = useState(false);
 
   const handleFolderSelect = useCallback((event) => {
     const files = Array.from(event.target.files);
@@ -312,59 +321,185 @@ const FolderProcessor = ({
     onProcessingStart(selectedFiles.length);
 
     try {
-      const processedResults = [];
+      let processedResults = [];
       
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        setCurrentFile(file.name);
+      if (useParallelProcessing) {
+        // Parallel processing
+        setCurrentFile('Processing in parallel...');
+        setProgress(10);
         
-        // Update progress
-        const currentProgress = ((i + 1) / selectedFiles.length) * 100;
-        setProgress(currentProgress);
-        onProgressUpdate(i + 1, selectedFiles.length);
-
         try {
-          // Process detection
-          const detectionResult = await apiService.detectObjects(
-            file,
-            true, // detect_face
-            true  // detect_license_plate
-          );
-
-          if (!detectionResult.success) {
-            throw new Error(detectionResult.error);
-          }
-
-          // Process blur
-          const blurResult = await apiService.blurObjects(
-            file,
-            true, // detect_face
-            true, // detect_license_plate
-            25,   // face_blur_strength
-            20    // plate_blur_strength
-          );
-
-          if (!blurResult.success) {
-            throw new Error(blurResult.error);
-          }
-
-          // Store result
-          processedResults.push({
-            originalFile: file,
-            detection: detectionResult.data,
-            blur: blurResult.data,
-            processedAt: new Date().toISOString()
+          const parallelResult = await apiService.processBatchParallel(selectedFiles, {
+            detectFace: true,
+            detectLicensePlate: true,
+            enableBlur: true,
+            faceBlurStrength: 25,
+            plateBlurStrength: 20,
+            maxWorkers: maxWorkers
           });
 
-        } catch (error) {
-          console.error(`Error processing ${file.name}:`, error);
-          toast.error(`Failed to process ${file.name}: ${error.message}`);
+          console.log('🔍 Parallel processing result:', parallelResult);
+
+          if (!parallelResult.success) {
+            throw new Error(parallelResult.error);
+          }
+
+          // Check if we have results
+          if (!parallelResult.data || !parallelResult.data.results) {
+            console.error('❌ No results in parallel processing response:', parallelResult.data);
+            throw new Error('No results returned from parallel processing');
+          }
+
+          console.log('✅ Parallel processing results:', parallelResult.data.results);
+
+          // Convert parallel results to our format
+          processedResults = parallelResult.data.results.map(result => {
+            const file = selectedFiles.find(f => f.name === result.filename);
+            const convertedResult = {
+              id: Date.now() + Math.random(),
+              filename: result.filename,
+              file: file,
+              preview: file ? URL.createObjectURL(file) : '',
+              detection: result.detection, // This should already be the correct format
+              blurred: result.blur,       // This should already be the correct format
+              timestamp: new Date().toISOString()
+            };
+            console.log(`🔄 Converted result for ${result.filename}:`, convertedResult);
+            console.log(`🔍 Detection data:`, result.detection);
+            console.log(`🔍 Blur data:`, result.blur);
+            return convertedResult;
+          });
+
+          console.log('📊 Final processed results:', processedResults);
+
+          setProgress(100);
+          onProgressUpdate(selectedFiles.length, selectedFiles.length);
+          
+          // Show parallel processing stats
+          const stats = parallelResult.data;
+          toast.success(
+            `Parallel processing completed: ${stats.successful_count}/${stats.total_images} images processed in ${(stats.total_processing_time_ms / 1000).toFixed(1)}s (${stats.parallel_efficiency.toFixed(1)}% efficiency)`
+          );
+          
+        } catch (parallelError) {
+          console.warn('Parallel processing failed, falling back to sequential:', parallelError);
+          toast.warning(`Parallel processing failed: ${parallelError.message}. Falling back to sequential processing...`);
+          
+          // Fallback to sequential processing
+          for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            setCurrentFile(file.name);
+            
+            // Update progress
+            const currentProgress = ((i + 1) / selectedFiles.length) * 100;
+            setProgress(currentProgress);
+            onProgressUpdate(i + 1, selectedFiles.length);
+
+            try {
+              // Process detection
+              const detectionResult = await apiService.detectObjects(
+                file,
+                true, // detect_face
+                true  // detect_license_plate
+              );
+
+              if (!detectionResult.success) {
+                throw new Error(detectionResult.error);
+              }
+
+              // Process blur
+              const blurResult = await apiService.blurObjects(
+                file,
+                true, // detect_face
+                true, // detect_license_plate
+                25,   // face_blur_strength
+                20    // plate_blur_strength
+              );
+
+              if (!blurResult.success) {
+                throw new Error(blurResult.error);
+              }
+
+              // Store result with EXACT same structure as single image processing
+              processedResults.push({
+                id: Date.now() + Math.random(),
+                filename: file.name,
+                file: file,
+                preview: URL.createObjectURL(file),
+                detection: detectionResult.data,  // This contains {detections: [...], total_faces: int, total_license_plates: int}
+                blurred: blurResult.data,
+                timestamp: new Date().toISOString()
+              });
+
+            } catch (error) {
+              console.error(`Error processing ${file.name}:`, error);
+              toast.error(`Failed to process ${file.name}: ${error.message}`);
+            }
+          }
+          
+          toast.success(`Sequential fallback completed: ${processedResults.length} images processed`);
         }
+        
+      } else {
+        // Sequential processing (original method)
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          setCurrentFile(file.name);
+          
+          // Update progress
+          const currentProgress = ((i + 1) / selectedFiles.length) * 100;
+          setProgress(currentProgress);
+          onProgressUpdate(i + 1, selectedFiles.length);
+
+          try {
+            // Process detection
+            const detectionResult = await apiService.detectObjects(
+              file,
+              true, // detect_face
+              true  // detect_license_plate
+            );
+
+            if (!detectionResult.success) {
+              throw new Error(detectionResult.error);
+            }
+
+            // Process blur
+            const blurResult = await apiService.blurObjects(
+              file,
+              true, // detect_face
+              true, // detect_license_plate
+              25,   // face_blur_strength
+              20    // plate_blur_strength
+            );
+
+            if (!blurResult.success) {
+              throw new Error(blurResult.error);
+            }
+
+            // Store result with EXACT same structure as single image processing
+            processedResults.push({
+              id: Date.now() + Math.random(),
+              filename: file.name,
+              file: file,
+              preview: URL.createObjectURL(file),
+              detection: detectionResult.data,  // This contains {detections: [...], total_faces: int, total_license_plates: int}
+              blurred: blurResult.data,
+              timestamp: new Date().toISOString()
+            });
+
+          } catch (error) {
+            console.error(`Error processing ${file.name}:`, error);
+            toast.error(`Failed to process ${file.name}: ${error.message}`);
+          }
+        }
+        
+        toast.success(`Successfully processed ${processedResults.length} images sequentially`);
       }
 
+      console.log('🎯 Setting results:', processedResults);
       setResults(processedResults);
       onProcessingComplete(processedResults.length);
-      toast.success(`Successfully processed ${processedResults.length} images`);
+      console.log('✅ Results set, count:', processedResults.length);
 
     } catch (error) {
       console.error('Folder processing error:', error);
@@ -373,7 +508,7 @@ const FolderProcessor = ({
       setIsProcessing(false);
       setCurrentFile('');
     }
-  }, [selectedFiles, onProcessingStart, onProcessingComplete, onProgressUpdate]);
+  }, [selectedFiles, onProcessingStart, onProcessingComplete, onProgressUpdate, useParallelProcessing, maxWorkers]);
 
   const downloadZip = useCallback(async () => {
     if (results.length === 0) {
@@ -465,6 +600,38 @@ const FolderProcessor = ({
     setViewerIndex(newIndex);
   }, []);
 
+  // Image viewer control functions
+  const toggleBoundingBoxes = useCallback((resultIndex) => {
+    setImageViewerSettings(prev => ({
+      ...prev,
+      [resultIndex]: {
+        ...prev[resultIndex],
+        showBoundingBoxes: !prev[resultIndex]?.showBoundingBoxes
+      }
+    }));
+  }, []);
+
+  const toggleLabels = useCallback((resultIndex) => {
+    setImageViewerSettings(prev => ({
+      ...prev,
+      [resultIndex]: {
+        ...prev[resultIndex],
+        showLabels: !prev[resultIndex]?.showLabels
+      }
+    }));
+  }, []);
+
+  const toggleBlurred = useCallback((resultIndex) => {
+    setImageViewerSettings(prev => ({
+      ...prev,
+      [resultIndex]: {
+        ...prev[resultIndex],
+        showBlurred: !prev[resultIndex]?.showBlurred
+      }
+    }));
+  }, []);
+
+
   return (
     <FolderContainer>
       <Section>
@@ -512,13 +679,68 @@ const FolderProcessor = ({
           </FileList>
         )}
 
+        {/* Parallel Processing Options */}
+        <Section style={{ marginTop: '20px', padding: '15px', background: '#f8f9fa', borderRadius: '8px' }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>⚡ Processing Options</h3>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={useParallelProcessing}
+                onChange={(e) => {
+                  setUseParallelProcessing(e.target.checked);
+                  if (e.target.checked) {
+                    setShowParallelWarning(true);
+                  }
+                }}
+                disabled={isProcessing}
+              />
+              <span style={{ fontWeight: '500' }}>Use Parallel Processing</span>
+            </label>
+            
+            {useParallelProcessing && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontSize: '14px', color: '#666' }}>Workers:</label>
+                <select
+                  value={maxWorkers}
+                  onChange={(e) => setMaxWorkers(parseInt(e.target.value))}
+                  disabled={isProcessing}
+                  style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                >
+                  <option value={2}>2</option>
+                  <option value={4}>4</option>
+                  <option value={6}>6</option>
+                  <option value={8}>8</option>
+                </select>
+              </div>
+            )}
+          </div>
+          
+          {useParallelProcessing && (
+            <div style={{ 
+              padding: '10px', 
+              background: '#fff3cd', 
+              border: '1px solid #ffeaa7', 
+              borderRadius: '4px',
+              fontSize: '14px',
+              color: '#856404'
+            }}>
+              ⚠️ <strong>Warning:</strong> Parallel processing may use more system resources and could potentially affect detection accuracy due to concurrent model loading. Use for faster processing of large batches.
+            </div>
+          )}
+        </Section>
+
         <Controls>
           <ControlButton
             variant="primary"
             onClick={processFolder}
             disabled={isProcessing || selectedFiles.length === 0}
           >
-            {isProcessing ? '⏳ Processing...' : '🚀 Process Folder'}
+            {isProcessing 
+              ? (useParallelProcessing ? '⚡ Processing in parallel...' : '⏳ Processing...') 
+              : (useParallelProcessing ? '⚡ Process Folder (Parallel)' : '🚀 Process Folder (Sequential)')
+            }
           </ControlButton>
           
           {results.length > 0 && (
@@ -560,51 +782,47 @@ const FolderProcessor = ({
           </SectionTitle>
           
           <ResultsGrid>
-            {results.map((result, index) => (
-              <ResultCard key={index}>
-                <ResultImage 
-                  src={URL.createObjectURL(result.originalFile)}
-                  alt={result.originalFile.name}
-                  onClick={() => openViewer(index)}
-                  title="Click to view full screen"
-                />
-                <ResultInfo>
-                  <ResultTitle>{result.originalFile.name}</ResultTitle>
-                  <ResultStats>
-                    <span>👤 Faces: {result.detection?.total_faces || 0}</span>
-                    <span>🚗 Plates: {result.detection?.total_license_plates || 0}</span>
-                  </ResultStats>
-                  <ResultActions>
-                    <ActionButton 
-                      className="primary"
-                      onClick={() => openViewer(index)}
-                      title="View full screen"
-                    >
-                      🔍 Full Screen
-                    </ActionButton>
-                    <ActionButton onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = URL.createObjectURL(result.originalFile);
-                      link.download = result.originalFile.name;
-                      link.click();
-                    }}>
-                      📥 Original
-                    </ActionButton>
-                    {result.blur?.blurred_image_path && (
-                      <ActionButton onClick={() => {
-                        const filename = result.blur.blurred_image_path.split('/').pop();
-                        const link = document.createElement('a');
-                        link.href = `http://localhost:8000/download/${filename}`;
-                        link.download = `blurred_${result.originalFile.name}`;
-                        link.click();
-                      }}>
-                        🔒 Blurred
+            {results.map((result, index) => {
+              console.log(`🎨 Rendering result ${index}:`, result);
+              const settings = imageViewerSettings[index] || {
+                showBoundingBoxes: true,
+                showLabels: true,
+                showBlurred: false
+              };
+              
+              return (
+                <ResultCard key={index}>
+                  <div style={{ position: 'relative' }}>
+                    <ImageViewer
+                      image={result}  // Pass the entire result object like in single image processing
+                      detections={result.detection?.detections || []}  // Use the same structure as single image
+                      showBoundingBoxes={settings.showBoundingBoxes}
+                      showLabels={settings.showLabels}
+                      showBlurred={settings.showBlurred}
+                      onToggleBoundingBoxes={() => toggleBoundingBoxes(index)}
+                      onToggleLabels={() => toggleLabels(index)}
+                      onToggleBlurred={() => toggleBlurred(index)}
+                    />
+                  </div>
+                  <ResultInfo>
+                    <ResultTitle>{result.filename}</ResultTitle>
+                    <ResultStats>
+                      <span>👤 Faces: {result.detection?.total_faces || 0}</span>
+                      <span>🚗 Plates: {result.detection?.total_license_plates || 0}</span>
+                    </ResultStats>
+                    <ResultActions>
+                      <ActionButton 
+                        className="primary"
+                        onClick={() => openViewer(index)}
+                        title="View full screen"
+                      >
+                        🔍 Full Screen
                       </ActionButton>
-                    )}
-                  </ResultActions>
-                </ResultInfo>
-              </ResultCard>
-            ))}
+                    </ResultActions>
+                  </ResultInfo>
+                </ResultCard>
+              );
+            })}
           </ResultsGrid>
         </Section>
       )}
