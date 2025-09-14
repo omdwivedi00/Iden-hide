@@ -46,19 +46,20 @@ class DetectFace:
                 'out_path': temp_output,
                 'yolo_w': kwargs.get('yolo_w', 'yolo11s.pt'),
                 'pconf': kwargs.get('person_conf', 0.50),
-                'imgsz': kwargs.get('imgsz', 768),
+                'imgsz': kwargs.get('imgsz', 960),
                 'person_nms_iou': kwargs.get('person_nms_iou', 0.60),
                 'face_size': kwargs.get('face_det_size', 1280),
-                'fthr': kwargs.get('face_det_thresh', 0.10),
-                'flip_tta': kwargs.get('flip_tta', True),
-                'roi_scale': kwargs.get('roi_scale', 1.10),
+                'fthr': kwargs.get('face_det_thresh', 0.20),
+                'flip_tta': kwargs.get('flip_tta', False),
+                'roi_scale': kwargs.get('roi_scale', 1.15),
                 'roi_square': kwargs.get('roi_square', False),
-                'grid': kwargs.get('grid', '2x2'),
+                'grid': kwargs.get('grid', '3x3'),
                 'overlap': kwargs.get('overlap', 0.30),
-                'head_frac': kwargs.get('head_frac', 0.45),
-                'size_min_rel': kwargs.get('size_min_rel', 0.10),
+                'head_frac': kwargs.get('head_frac', 0.25),
+                'size_min_rel': kwargs.get('size_min_rel', 0.07),
                 'size_max_rel': kwargs.get('size_max_rel', 0.55)
             }
+            
             
             # Run the v2 detector
             detect_faces_v2(**params)

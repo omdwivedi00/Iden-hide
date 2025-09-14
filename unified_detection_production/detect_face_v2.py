@@ -142,13 +142,14 @@ def run(
 
     # SCRFD
     app = FaceAnalysis(name="buffalo_l",
-                       providers=["CPUExecutionProvider"],
-                       allowed_modules=['detection'])
-    app.prepare(ctx_id=0, det_size=(face_size, face_size))
+                    providers=["CPUExecutionProvider"],
+                    allowed_modules=['detection'])
+    app.prepare(ctx_id=0, det_size=(face_size, face_size))  # if you ever see GPU selection issues, use ctx_id=-1
+
     det = app.models.get('detection', None)
     if det:
         det.det_thresh = fthr
-        det.nms_thresh = 0.45
+        det.nms_thresh = 0.40
 
     faces_all, scores_all = [], []
 
@@ -172,7 +173,8 @@ def run(
 
     # cross-person NMS (in case ROIs overlap)
     keep_f = nms_xyxy(faces_all, scores_all, iou_thr=0.55)
-    faces_final = [[float(f"{v:.2f}") for v in faces_all[i]] + [float(f"{scores_all[i]:.4f}")] for i in keep_f]
+    # faces_final = [[float(f"{v:.2f}") for v in faces_all[i]] + [float(f"{scores_all[i]:.4f}")] for i in keep_f]
+    faces_final = [faces_all[i] + [float(scores_all[i])] for i in keep_f]
 
     # --- outputs ---
     # 1) save sidecar JSON <out>.json
