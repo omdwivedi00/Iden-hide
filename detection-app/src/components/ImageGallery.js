@@ -3,8 +3,10 @@
  * Displays processed images with results and bounding box controls
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import styled from 'styled-components';
+import { mediaQueries, layoutHelpers } from '../styles/mediaKit';
 import ImageViewer from './ImageViewer';
 
 const GalleryContainer = styled.div`
@@ -12,13 +14,27 @@ const GalleryContainer = styled.div`
 `;
 
 const GalleryGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  gap: 20px;
+  ${layoutHelpers.grid({ xs: 1, sm: 1, md: 2, lg: 2, xl: 3, xxl: 4 })}
   margin-top: 20px;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
+  
+  ${mediaQueries.sm} {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  }
+  
+  ${mediaQueries.md} {
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  }
+  
+  ${mediaQueries.lg} {
+    grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+  }
+  
+  ${mediaQueries.xl} {
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  }
+  
+  ${mediaQueries.xxl} {
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   }
 `;
 
@@ -28,11 +44,17 @@ const ImageCard = styled.div`
   overflow: hidden;
   background: white;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  transition: transform 0.3s ease;
+  transition: all 0.3s ease;
+  cursor: pointer;
 
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    border-color: #007bff;
+    
+    .click-indicator {
+      opacity: 1;
+    }
   }
 `;
 
@@ -171,21 +193,27 @@ const Modal = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.95);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
   padding: 20px;
+  backdrop-filter: blur(5px);
 `;
 
 const ModalContent = styled.div`
-  max-width: 90vw;
-  max-height: 90vh;
+  width: 95vw;
+  height: 95vh;
+  max-width: 95vw;
+  max-height: 95vh;
   background: white;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
 `;
 
 const CloseButton = styled.button`
@@ -220,6 +248,28 @@ const ImageGallery = ({ images, onDownload, onDelete, isDownloading, showBoundin
   const closeModal = () => {
     setSelectedImage(null);
   };
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && selectedImage) {
+        closeModal();
+      }
+    };
+
+    if (selectedImage) {
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedImage]);
 
   const handleDownload = (image, type) => {
     if (onDownload) {
@@ -285,6 +335,22 @@ const ImageGallery = ({ images, onDownload, onDelete, isDownloading, showBoundin
               onToggleLabels={onToggleLabels}
               onToggleBlurred={toggleBlurred}
             />
+            {/* Click indicator */}
+            <div style={{
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              background: 'rgba(0,0,0,0.7)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              opacity: 0,
+              transition: 'opacity 0.3s ease',
+              pointerEvents: 'none'
+            }} className="click-indicator">
+              🔍 Click to view full screen
+            </div>
             </ImageContainer>
             
             <ImageInfo>
@@ -379,23 +445,117 @@ const ImageGallery = ({ images, onDownload, onDelete, isDownloading, showBoundin
         ))}
       </GalleryGrid>
 
-      {selectedImage && (
+      {selectedImage && createPortal(
         <Modal onClick={closeModal}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <CloseButton onClick={closeModal}>×</CloseButton>
-            <ImageViewer
-              image={selectedImage}
-              detections={selectedImage.detection?.detections || []}
-              isDownloading={isDownloading}
-              showBoundingBoxes={showBoundingBoxes}
-              showLabels={showLabels}
-              showBlurred={showBlurred}
-              onToggleBoundingBoxes={onToggleBoundingBoxes}
-              onToggleLabels={onToggleLabels}
-              onToggleBlurred={toggleBlurred}
-            />
+            
+            {/* Image Header */}
+            <div style={{ 
+              padding: '15px 20px', 
+              borderBottom: '1px solid #eee',
+              background: '#f8f9fa',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', color: '#333' }}>
+                  {selectedImage.filename}
+                </h3>
+                <div style={{ fontSize: '14px', color: '#666' }}>
+                  <span>👤 Faces: {selectedImage.detection?.total_faces || 0}</span>
+                  <span style={{ margin: '0 15px' }}>🚗 Plates: {selectedImage.detection?.total_license_plates || 0}</span>
+                  <span>⏱️ {selectedImage.detection?.processing_time_ms || 0}ms</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <ActionButton 
+                  className="primary"
+                  disabled={isDownloading}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload(selectedImage, 'original');
+                  }}
+                >
+                  {isDownloading ? '⏳' : '📥'} Original
+                </ActionButton>
+                {selectedImage.blurred && (
+                  <ActionButton 
+                    className="primary"
+                    disabled={isDownloading}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload(selectedImage, 'blurred');
+                    }}
+                  >
+                    {isDownloading ? '⏳' : '🔒'} Blurred
+                  </ActionButton>
+                )}
+              </div>
+            </div>
+            
+            {/* Image Viewer */}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+              <ImageViewer
+                image={selectedImage}
+                detections={selectedImage.detection?.detections || []}
+                isDownloading={isDownloading}
+                showBoundingBoxes={showBoundingBoxes}
+                showLabels={showLabels}
+                showBlurred={showBlurred}
+                onToggleBoundingBoxes={onToggleBoundingBoxes}
+                onToggleLabels={onToggleLabels}
+                onToggleBlurred={toggleBlurred}
+              />
+            </div>
+            
+            {/* Image Footer with Controls */}
+            <div style={{ 
+              padding: '15px 20px', 
+              borderTop: '1px solid #eee',
+              background: '#f8f9fa',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <span style={{ fontSize: '14px', color: '#666' }}>Controls:</span>
+                <ActionButton 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleBoundingBoxes();
+                  }}
+                  style={{ background: showBoundingBoxes ? '#007bff' : '#f8f9fa', color: showBoundingBoxes ? 'white' : '#333' }}
+                >
+                  📦 Bounding Boxes
+                </ActionButton>
+                <ActionButton 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleLabels();
+                  }}
+                  style={{ background: showLabels ? '#007bff' : '#f8f9fa', color: showLabels ? 'white' : '#333' }}
+                >
+                  🏷️ Labels
+                </ActionButton>
+                <ActionButton 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleBlurred();
+                  }}
+                  style={{ background: showBlurred ? '#007bff' : '#f8f9fa', color: showBlurred ? 'white' : '#333' }}
+                >
+                  🔒 Blurred View
+                </ActionButton>
+              </div>
+              <div style={{ fontSize: '12px', color: '#999' }}>
+                Click outside to close • ESC to close
+              </div>
+            </div>
           </ModalContent>
-        </Modal>
+        </Modal>,
+        document.body
       )}
     </GalleryContainer>
   );

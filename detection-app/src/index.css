@@ -1,0 +1,23 @@
+/* Global CSS Reset to Prevent Horizontal Scroll */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+#root {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Ensure all elements respect viewport width */
+* {
+  max-width: 100%;
+}

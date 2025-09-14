@@ -5,31 +5,52 @@
 
 import React from 'react';
 import styled from 'styled-components';
+import { mediaQueries } from '../styles/mediaKit';
 
 const ControlsContainer = styled.div`
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 20px;
-  margin: 20px 0;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  border: 1px solid rgba(0,0,0,0.05);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
 `;
 
 const SectionTitle = styled.h3`
-  margin: 0 0 15px 0;
+  margin: 0 0 10px 0;
   color: #333;
-  font-size: 18px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  
+  ${mediaQueries.sm} {
+    font-size: 1rem;
+  }
+  
+  ${mediaQueries.md} {
+    font-size: 1.125rem;
+  }
 `;
 
 const ControlGroup = styled.div`
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 `;
 
 const Label = styled.label`
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   cursor: pointer;
   font-weight: 500;
   color: #555;
+  font-size: 0.75rem;
+  
+  ${mediaQueries.sm} {
+    font-size: 0.8rem;
+  }
+  
+  ${mediaQueries.md} {
+    font-size: 0.875rem;
+  }
 `;
 
 const Checkbox = styled.input`
@@ -79,29 +100,38 @@ const Button = styled.button`
 `;
 
 const PrimaryButton = styled(Button)`
-  background: #007bff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
   
   &:hover:not(:disabled) {
-    background: #0056b3;
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
   }
 `;
 
 const SecondaryButton = styled(Button)`
-  background: #6c757d;
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
   color: white;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
   
   &:hover:not(:disabled) {
-    background: #545b62;
+    background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
   }
 `;
 
 const DangerButton = styled(Button)`
-  background: #dc3545;
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
   color: white;
+  box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
   
   &:hover:not(:disabled) {
-    background: #c82333;
+    background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(244, 67, 54, 0.4);
   }
 `;
 

@@ -16,7 +16,7 @@ class DetectLP:
         self.plate_model = YOLO(plate_model_path)
         
         # Detection parameters
-        self.vehicle_conf_threshold = 0.5
+        self.vehicle_conf_threshold = 0.3
         self.plate_conf_threshold = 0.2
         self.vehicle_classes = [2, 3, 5, 7]  # car, motorcycle, bus, truck
 

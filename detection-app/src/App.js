@@ -18,50 +18,157 @@ import apiService from './services/apiService';
 import { FileUtils } from './utils/fileUtils';
 
 import styled from 'styled-components';
+import { mediaQueries, layoutHelpers } from './styles/mediaKit';
 
 const AppContainer = styled.div`
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  padding: 0.5rem;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  
+  ${mediaQueries.sm} {
+    padding: 0.75rem;
+  }
+  
+  ${mediaQueries.md} {
+    padding: 1rem;
+  }
+  
+  ${mediaQueries.lg} {
+    padding: 1.25rem;
+  }
+  
+  ${mediaQueries.xl} {
+    padding: 1.5rem;
+  }
 `;
 
 const Header = styled.header`
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #667eea 100%);
   color: white;
-  border-radius: 10px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(30, 60, 114, 0.3);
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.05"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.05"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.05"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+  }
 `;
 
 const Title = styled.h1`
   margin: 0 0 10px 0;
-  font-size: 2.5rem;
-  font-weight: 700;
+  font-size: 1.25rem;
+  font-weight: 800;
+  background: linear-gradient(45deg, #ffffff, #e3f2fd);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  position: relative;
+  z-index: 1;
+  
+  ${mediaQueries.sm} {
+    font-size: 1.375rem;
+  }
+  
+  ${mediaQueries.md} {
+    font-size: 1.5rem;
+  }
+  
+  ${mediaQueries.lg} {
+    font-size: 1.625rem;
+  }
+  
+  ${mediaQueries.xl} {
+    font-size: 1.75rem;
+  }
 `;
 
 const Subtitle = styled.p`
-  margin: 0;
-  font-size: 1.1rem;
-  opacity: 0.9;
+  margin: 0 0 15px 0;
+  font-size: 0.875rem;
+  opacity: 0.95;
+  font-weight: 300;
+  position: relative;
+  z-index: 1;
+  
+  ${mediaQueries.sm} {
+    font-size: 0.9rem;
+  }
+  
+  ${mediaQueries.md} {
+    font-size: 1rem;
+  }
+  
+  ${mediaQueries.lg} {
+    font-size: 1.125rem;
+  }
+`;
+
+const BrandTagline = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 8px 16px;
+  border-radius: 25px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  z-index: 1;
 `;
 
 const MainContent = styled.main`
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 30px;
-  margin-bottom: 30px;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  
+  ${mediaQueries.sm} {
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  
+  ${mediaQueries.md} {
+    grid-template-columns: 1fr 1.5fr;
+    gap: 1.25rem;
+  }
+  
+  ${mediaQueries.lg} {
+    grid-template-columns: 1fr 2fr;
+    gap: 1.5rem;
+  }
+  
+  ${mediaQueries.xl} {
+    grid-template-columns: 1fr 1.5fr 1fr;
+    gap: 2rem;
   }
 `;
 
 const LeftPanel = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 `;
 
 const RightPanel = styled.div`
@@ -71,17 +178,49 @@ const RightPanel = styled.div`
 
 const Section = styled.section`
   background: white;
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  border: 1px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  
+  &:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    transform: translateY(-1px);
+  }
+  
+  ${mediaQueries.sm} {
+    padding: 18px;
+  }
+  
+  ${mediaQueries.md} {
+    padding: 20px;
+  }
 `;
 
 const SectionTitle = styled.h2`
-  margin: 0 0 20px 0;
+  margin: 0 0 12px 0;
   color: #333;
-  font-size: 1.5rem;
-  border-bottom: 2px solid #f0f0f0;
-  padding-bottom: 10px;
+  font-size: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 6px;
+  
+  ${mediaQueries.sm} {
+    font-size: 1.125rem;
+  }
+  
+  ${mediaQueries.md} {
+    font-size: 1.25rem;
+  }
+  
+  ${mediaQueries.lg} {
+    font-size: 1.375rem;
+  }
 `;
 
 function App() {
@@ -144,9 +283,17 @@ function App() {
 
   // File handling
   const handleFilesSelected = useCallback((selectedFiles) => {
-    setFiles(prevFiles => [...prevFiles, ...selectedFiles]);
-    showToast(`${selectedFiles.length} file(s) selected`, 'success');
-  }, []);
+    // For single image processing, replace files but keep previous results
+    if (currentMode === 'single') {
+      setFiles(selectedFiles);
+      // Don't clear processedImages - keep previous results
+      showToast(`${selectedFiles.length} file(s) selected`, 'success');
+    } else {
+      // For other modes, append files
+      setFiles(prevFiles => [...prevFiles, ...selectedFiles]);
+      showToast(`${selectedFiles.length} file(s) added`, 'success');
+    }
+  }, [currentMode]);
 
   const handleClearFiles = () => {
     setFiles([]);
@@ -234,6 +381,7 @@ function App() {
         }
       }
 
+      // Always append results to preserve previous ones
       setProcessedImages(prev => [...prev, ...results]);
       showStatus('success', 'Detection Complete', `Successfully processed ${results.length} image(s)`);
       showToast(`Detection completed for ${results.length} image(s)`, 'success');
@@ -284,6 +432,7 @@ function App() {
         }
       }
 
+      // Always append results to preserve previous ones
       setProcessedImages(prev => [...prev, ...results]);
       showStatus('success', 'Blur Complete', `Successfully blurred ${results.length} image(s)`);
       showToast(`Blur completed for ${results.length} image(s)`, 'success');
@@ -422,8 +571,11 @@ function App() {
       {currentMode === 'single' && (
         <>
           <Header>
-            <Title>🔍 Single Image Processing</Title>
-            <Subtitle>Face & License Plate Detection with Privacy Protection</Subtitle>
+            <Title>🛡️ Iden-Hide</Title>
+            <Subtitle>AI-Powered Anonymization Engine</Subtitle>
+            <BrandTagline>
+              🚀 Detect and hide faces & license plates with AI — ensuring privacy without losing image context
+            </BrandTagline>
           </Header>
 
       <StatusBar
@@ -473,7 +625,7 @@ function App() {
 
         <RightPanel>
           <Section>
-            <SectionTitle>🖼️ Processed Images</SectionTitle>
+            <SectionTitle>🖼️ Processed Images ({processedImages.length})</SectionTitle>
             <ImageGallery
               images={processedImages}
               onDownload={handleDownload}

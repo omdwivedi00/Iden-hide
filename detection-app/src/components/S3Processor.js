@@ -6,21 +6,38 @@
 import React, { useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
+import { mediaQueries, layoutHelpers } from '../styles/mediaKit';
 import { s3Service } from '../services/s3Service';
 import S3ImageViewer from './S3ImageViewer';
 
 const S3Container = styled.div`
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+  ${layoutHelpers.container('xxl')}
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+  
+  ${mediaQueries.xl} {
+    padding: 2rem;
+  }
+  
+  ${mediaQueries.xxl} {
+    padding: 3rem;
+  }
 `;
 
 const Section = styled.div`
   background: white;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 24px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+  }
 `;
 
 const SectionTitle = styled.h2`
@@ -33,13 +50,15 @@ const SectionTitle = styled.h2`
 `;
 
 const FormGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  ${layoutHelpers.grid({ xs: 1, sm: 1, md: 2, lg: 2, xl: 3, xxl: 3 })}
   margin-bottom: 20px;
   
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
+  ${mediaQueries.lg} {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  ${mediaQueries.xl} {
+    grid-template-columns: 1fr 1fr 1fr;
   }
 `;
 
@@ -549,6 +568,41 @@ const S3Processor = ({
 
   return (
     <S3Container>
+      <Section style={{ textAlign: 'center', marginBottom: '30px' }}>
+        <h1 style={{ 
+          margin: '0 0 15px 0', 
+          fontSize: '3rem', 
+          fontWeight: '800',
+          background: 'linear-gradient(45deg, #1e3c72, #667eea)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text'
+        }}>
+          🛡️ Iden-Hide
+        </h1>
+        <p style={{ 
+          margin: '0 0 20px 0', 
+          fontSize: '1.3rem', 
+          color: '#666',
+          fontWeight: '300'
+        }}>
+          AI-Powered Anonymization Engine
+        </p>
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          background: 'rgba(30, 60, 114, 0.1)',
+          padding: '8px 16px',
+          borderRadius: '25px',
+          fontSize: '0.9rem',
+          fontWeight: '500',
+          color: '#1e3c72'
+        }}>
+          ☁️ Process images directly from AWS S3 with cloud-scale privacy protection
+        </div>
+      </Section>
+      
       {/* Credentials Section */}
       <Section>
         <SectionTitle>
