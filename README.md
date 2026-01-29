@@ -1,177 +1,57 @@
-# Iden-Hide
+# Unified Detection
 
-Faceplate is an AI-powered anonymization toolkit that automatically detects and anonymizes **faces** and **license plates** in images and videos.  
-It's designed for researchers, developers, and companies who need to share visual data without compromising privacy.
+Production-ready refactor of the unified face + license plate detection system.
 
-✨ **Features**
-- 🔍 Detects faces and license plates with high accuracy
-- 🕶️ Applies blur, pixelation, or masking
-- 🎥 Works on both images and videos
-- ⚡ Built with deep learning for real-time performance
-- 🔒 Ensures privacy compliance (GDPR, HIPAA, etc.)
+## Structure
 
-This folder contains a complete backup of the unified detection system with both backend and frontend components.
-
-## 📁 Contents
-
-- `unified_detection_production/` - Backend API server with detection and S3 processing
-- `detection-app/` - React.js frontend application
-
-## 🚀 Quick Start
-
-### Option 1: Automated Setup (Recommended)
-```bash
-# Run the complete setup
-./setup.sh
+```
+unified_detection/
+├── src/
+│   └── unified_detection/
+│       ├── config.py
+│       ├── logging.py
+│       ├── types.py
+│       ├── core/
+│       │   ├── detector.py
+│       │   ├── face.py
+│       │   ├── license_plate.py
+│       │   └── blur.py
+│       ├── api/
+│       │   ├── app.py
+│       │   └── routes.py
+│       └── cli/
+│           └── run_dataset.py
+├── models/
+├── tests/
+├── Dockerfile
+├── requirements.txt
+└── pyproject.toml
 ```
 
-### Option 2: Manual Setup
-```bash
-# Step 1: Start backend server
-./step1.sh
+## Run API
 
-# Step 2: In a new terminal, start frontend
-./step2.sh
+```
+pip install -e .
+uvicorn unified_detection.api.app:create_app --factory --host 0.0.0.0 --port 8000
 ```
 
-## 📋 Prerequisites
+## Run Batch CLI
 
-- Python 3.9 or higher
-- Node.js 16 or higher
-- npm or yarn
-- Git
-
-## 🤖 Model Downloads
-
-The AI models are not included in this repository due to their large size. You need to download them separately:
-
-### Required Models
-Download the following model files from [Google Drive](https://drive.google.com/drive/folders/1_uy-8pJOlFJV5eoZlzm85cGulOeLhaAX?usp=sharing):
-
-1. **yolov8n.pt** (~6MB) - YOLO v8 nano for face detection
-2. **yolo11n.pt** (~5MB) - YOLO v11 nano for object detection  
-3. **license_plate_detector.pt** (~6MB) - Custom license plate detection model
-
-### Installation
-```bash
-# Create models directory
-mkdir -p unified_detection_production/models/
-
-# Download models from Google Drive and place them in:
-# unified_detection_production/models/yolov8n.pt
-# unified_detection_production/models/yolo11n.pt  
-# unified_detection_production/models/license_plate_detector.pt
+```
+python -m unified_detection.cli.run_dataset --input_dir tests/data --out_dir artifacts/output_batch --batch 4
 ```
 
-**Note:** The `yolov8x.pt` model (131MB) is excluded to keep the repository lightweight. The system will work with the smaller models listed above.
+## Configuration
 
-## 🔧 Backend Features
+All config is centralized in `unified_detection/src/unified_detection/config.py` and controlled via env vars.
 
-- **Face Detection**: Advanced face detection with YOLO + SCRFD
-- **License Plate Detection**: Vehicle detection + license plate detection with max confidence selection
-- **Blur Processing**: Oval blur for faces, rectangular blur for license plates
-- **S3 Integration**: Process images from/to AWS S3
-- **REST API**: Complete REST API with FastAPI
-- **Image Viewing**: S3 image viewing with presigned URLs
+Common overrides:
 
-## 🎨 Frontend Features
+- `DETECT_DEVICE` (cpu | cuda:0)
+- `MODEL_DIR` (default: models)
+- `OUTPUT_DIR` (default: output)
+- `UPLOADS_DIR` (default: uploads)
 
-- **Single Image Processing**: Upload and process individual images
-- **Folder Processing**: Batch process local folders
-- **S3 Processing**: Process images from S3 buckets
-- **Image Viewer**: View processed images with bounding boxes
-- **S3 Image Viewer**: View S3 images with navigation
-- **Download Support**: Download processed images
-- **Progress Tracking**: Real-time processing progress
+## Frontend
 
-## 📊 API Endpoints
-
-### Detection & Blur
-- `POST /detect` - Detect faces and license plates
-- `POST /blur` - Apply blur to detected objects
-- `GET /download/{filename}` - Download processed images
-
-### S3 Processing
-- `POST /s3/process-single` - Process single S3 image
-- `POST /s3/process-folder` - Process S3 folder
-- `POST /s3/view-image` - Get presigned URL for S3 image
-- `POST /s3/list-folder` - List S3 folder contents
-- `GET /s3/test-credentials` - Test S3 credentials
-
-## 🛠️ Configuration
-
-### Backend Configuration
-- Edit `unified_detection_production/main.py` for API settings
-- Edit `unified_detection_production/detect_*.py` for detection parameters
-- Set environment variables for AWS credentials
-
-### Frontend Configuration
-- Edit `detection-app/src/services/apiService.js` for API URL
-- Edit `detection-app/src/services/s3Service.js` for S3 settings
-
-## 📝 Usage Examples
-
-### Backend API
-```bash
-# Test detection
-curl -X POST "http://localhost:8000/detect" \
-  -H "Content-Type: application/json" \
-  -d '{"detect_face": true, "detect_license_plate": true}'
-
-# Test S3 processing
-curl -X POST "http://localhost:8000/s3/process-single" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "credentials": {
-      "aws_access_key_id": "your-key",
-      "aws_secret_access_key": "your-secret"
-    },
-    "input_s3_path": "s3://bucket/input.jpg",
-    "output_s3_path": "s3://bucket/output.jpg"
-  }'
-```
-
-### Frontend
-1. Open http://localhost:3000
-2. Choose processing mode (Single Image, Folder, or S3)
-3. Upload images or configure S3 settings
-4. Process and view results
-
-## 🔍 Troubleshooting
-
-### Backend Issues
-- Check Python version: `python --version`
-- Install dependencies: `pip install -r requirements.txt`
-- Check model files exist in `models/` folder
-- Verify port 8000 is available
-
-### Frontend Issues
-- Check Node.js version: `node --version`
-- Install dependencies: `npm install`
-- Check port 3000 is available
-- Verify backend is running
-
-### S3 Issues
-- Verify AWS credentials are correct
-- Check S3 bucket permissions
-- Ensure S3 paths are valid
-- Check network connectivity
-
-## 📚 Documentation
-
-- `unified_detection_production/README.md` - Backend documentation
-- `unified_detection_production/SETUP_GUIDE.md` - Detailed setup guide
-- `detection-app/README.md` - Frontend documentation
-- `unified_detection_production/LICENSE_PLATE_IMPROVEMENTS.md` - License plate detection improvements
-
-## 🆘 Support
-
-For issues or questions:
-1. Check the troubleshooting section
-2. Review the logs in terminal
-3. Check the API documentation at http://localhost:8000/docs
-4. Verify all dependencies are installed
-
-## 📄 License
-
-This project is part of the hackathon submission for TELUS.
+The React frontend is in `detection-app/` and talks to the API at `http://localhost:8000` by default.

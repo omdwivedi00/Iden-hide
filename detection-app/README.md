@@ -27,8 +27,7 @@ detection-app/
 │   ├── services/            # API services
 │   │   └── apiService.js    # Backend API integration
 │   ├── utils/               # Utility functions
-│   │   ├── fileUtils.js     # File operations
-│   │   └── imageProcessor.js # Image manipulation
+│   │   └── fileUtils.js     # File operations
 │   ├── App.js              # Main application component
 │   └── index.js            # Application entry point
 ├── package.json
@@ -46,8 +45,8 @@ detection-app/
 2. **Start the Backend Server**:
    ```bash
    # In another terminal, start the detection API server
-   cd ../unified_detection_production
-   python main.py
+   cd ..
+   uvicorn unified_detection.api.app:create_app --factory --host 0.0.0.0 --port 8000
    ```
 
 3. **Start the React App**:
@@ -96,7 +95,6 @@ echo "REACT_APP_API_URL=http://localhost:8000" > .env
 - **Colors**: Modify styled-components in each component
 - **API Endpoints**: Update `apiService.js`
 - **File Types**: Modify `fileUtils.js`
-- **Image Processing**: Customize `imageProcessor.js`
 
 ## 📱 Components
 

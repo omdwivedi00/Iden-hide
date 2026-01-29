@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unified-detection"
+version = "0.1.0"
+description = "Unified face and license plate detection API and batch tooling"
+readme = "README.md"
+requires-python = ">=3.9"
+
+[tool.setuptools]
+package-dir = {"" = "unified_detection/src"}
+
+[tool.setuptools.packages.find]
+where = ["unified_detection/src"]
