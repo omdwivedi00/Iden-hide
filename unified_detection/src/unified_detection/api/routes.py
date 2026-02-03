@@ -16,12 +16,9 @@ from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 
 from ..config import Settings
-from ..logging import get_logger
 from ..core.blur import DetectionVisualizer
 from ..core.detector import UnifiedDetector
 from ..services.s3_service import S3ProcessingService
-
-logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -160,7 +157,10 @@ def _to_bounding_boxes(results: Dict[str, Any]) -> List[BoundingBox]:
     detections: List[BoundingBox] = []
     for face in results.get("faces", []):
         bbox = face["bbox"] if isinstance(face, dict) else face[:4]
-        confidence = face.get("confidence", 0.0) if isinstance(face, dict) else float(face[4])
+        if isinstance(face, dict):
+            confidence = face.get("confidence", 0.0)
+        else:
+            confidence = float(face[4]) if len(face) > 4 else 0.0
         detections.append(
             BoundingBox(
                 x1=int(bbox[0]),
@@ -173,7 +173,10 @@ def _to_bounding_boxes(results: Dict[str, Any]) -> List[BoundingBox]:
         )
     for plate in results.get("license_plates", []):
         bbox = plate["bbox"] if isinstance(plate, dict) else plate[:4]
-        confidence = plate.get("confidence", 0.0) if isinstance(plate, dict) else float(plate[4])
+        if isinstance(plate, dict):
+            confidence = plate.get("confidence", 0.0)
+        else:
+            confidence = float(plate[4]) if len(plate) > 4 else 0.0
         detections.append(
             BoundingBox(
                 x1=int(bbox[0]),

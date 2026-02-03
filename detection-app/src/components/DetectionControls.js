@@ -8,17 +8,16 @@ import styled from 'styled-components';
 import { mediaQueries } from '../styles/mediaKit';
 
 const ControlsContainer = styled.div`
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 12px;
+  background: rgba(12, 16, 26, 0.6);
+  border-radius: 14px;
   padding: 16px;
   margin: 12px 0;
-  border: 1px solid rgba(0,0,0,0.05);
-  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 `;
 
 const SectionTitle = styled.h3`
   margin: 0 0 10px 0;
-  color: #333;
+  color: #e9eefc;
   font-size: 0.875rem;
   font-weight: 600;
   
@@ -41,7 +40,7 @@ const Label = styled.label`
   margin-bottom: 6px;
   cursor: pointer;
   font-weight: 500;
-  color: #555;
+  color: rgba(233, 238, 252, 0.75);
   font-size: 0.75rem;
   
   ${mediaQueries.sm} {
@@ -66,7 +65,7 @@ const SliderLabel = styled.label`
   display: block;
   margin-bottom: 5px;
   font-size: 14px;
-  color: #666;
+  color: rgba(233, 238, 252, 0.65);
 `;
 
 const Slider = styled.input`
@@ -76,7 +75,7 @@ const Slider = styled.input`
 
 const SliderValue = styled.span`
   font-size: 12px;
-  color: #999;
+  color: rgba(233, 238, 252, 0.5);
 `;
 
 const ButtonGroup = styled.div`
@@ -100,39 +99,21 @@ const Button = styled.button`
 `;
 
 const PrimaryButton = styled(Button)`
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #627eff 0%, #8f6bff 100%);
   color: white;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-  }
+  box-shadow: 0 8px 20px rgba(98, 126, 255, 0.3);
 `;
 
 const SecondaryButton = styled(Button)`
-  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+  background: linear-gradient(135deg, #27c97c 0%, #2fa5ff 100%);
   color: white;
-  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
-  }
+  box-shadow: 0 8px 20px rgba(39, 201, 124, 0.3);
 `;
 
 const DangerButton = styled(Button)`
-  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+  background: linear-gradient(135deg, #ff6b6b 0%, #c81d3a 100%);
   color: white;
-  box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(244, 67, 54, 0.4);
-  }
+  box-shadow: 0 8px 20px rgba(255, 107, 107, 0.3);
 `;
 
 const DetectionControls = ({
@@ -156,7 +137,8 @@ const DetectionControls = ({
   onBlur,
   onClear,
   isProcessing,
-  hasFiles
+  hasFiles,
+  showDisplayOptions = true
 }) => {
   return (
     <ControlsContainer>
@@ -226,39 +208,41 @@ const DetectionControls = ({
         )}
       </ControlGroup>
 
-      <ControlGroup>
-        <SectionTitle style={{ fontSize: '16px', marginBottom: '10px' }}>Display Options</SectionTitle>
-        
-        <Label>
-          <Checkbox
-            type="checkbox"
-            checked={showBoundingBoxes}
-            onChange={onShowBoundingBoxesChange}
-            disabled={isProcessing}
-          />
-          Show Bounding Boxes
-        </Label>
-        
-        <Label>
-          <Checkbox
-            type="checkbox"
-            checked={showLabels}
-            onChange={onShowLabelsChange}
-            disabled={isProcessing || !showBoundingBoxes}
-          />
-          Show Labels & Confidence
-        </Label>
-        
-        <Label>
-          <Checkbox
-            type="checkbox"
-            checked={showBlurred}
-            onChange={onShowBlurredChange}
-            disabled={isProcessing}
-          />
-          Show Blurred Images
-        </Label>
-      </ControlGroup>
+      {showDisplayOptions && (
+        <ControlGroup>
+          <SectionTitle style={{ fontSize: '16px', marginBottom: '10px' }}>Display Options</SectionTitle>
+          
+          <Label>
+            <Checkbox
+              type="checkbox"
+              checked={showBoundingBoxes}
+              onChange={onShowBoundingBoxesChange}
+              disabled={isProcessing}
+            />
+            Show Bounding Boxes
+          </Label>
+          
+          <Label>
+            <Checkbox
+              type="checkbox"
+              checked={showLabels}
+              onChange={onShowLabelsChange}
+              disabled={isProcessing || !showBoundingBoxes}
+            />
+            Show Labels & Confidence
+          </Label>
+          
+          <Label>
+            <Checkbox
+              type="checkbox"
+              checked={showBlurred}
+              onChange={onShowBlurredChange}
+              disabled={isProcessing}
+            />
+            Show Blurred Images
+          </Label>
+        </ControlGroup>
+      )}
 
       <ButtonGroup>
         <PrimaryButton

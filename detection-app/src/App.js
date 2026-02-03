@@ -7,7 +7,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-import Navbar from './components/Navbar';
 import FileUpload from './components/FileUpload';
 import DetectionControls from './components/DetectionControls';
 import ImageGallery from './components/ImageGallery';
@@ -18,209 +17,202 @@ import apiService from './services/apiService';
 import { FileUtils } from './utils/fileUtils';
 
 import styled from 'styled-components';
-import { mediaQueries, layoutHelpers } from './styles/mediaKit';
+import { mediaQueries } from './styles/mediaKit';
 
 const AppContainer = styled.div`
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', sans-serif;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  font-family: 'Space Grotesk', 'Manrope', 'Inter', system-ui, sans-serif;
+  background: radial-gradient(1200px 800px at 20% -10%, rgba(72, 98, 255, 0.18), transparent),
+    radial-gradient(800px 600px at 90% 10%, rgba(0, 201, 255, 0.16), transparent),
+    #0b0f1a;
   min-height: 100vh;
   width: 100%;
   max-width: 100vw;
-  padding: 0.5rem;
+  padding: 0.75rem;
   box-sizing: border-box;
   overflow-x: hidden;
-  
-  ${mediaQueries.sm} {
-    padding: 0.75rem;
-  }
-  
+  color: #e9eefc;
+`;
+
+const Shell = styled.div`
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 0.75rem;
+  min-height: calc(100vh - 1.5rem);
+
   ${mediaQueries.md} {
-    padding: 1rem;
-  }
-  
-  ${mediaQueries.lg} {
-    padding: 1.25rem;
-  }
-  
-  ${mediaQueries.xl} {
-    padding: 1.5rem;
+    grid-template-columns: 240px 1fr;
   }
 `;
 
-const Header = styled.header`
-  text-align: center;
-  margin-bottom: 20px;
-  padding: 20px;
-  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #667eea 100%);
-  color: white;
+const Sidebar = styled.aside`
+  background: rgba(18, 24, 40, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  backdrop-filter: blur(18px);
+`;
+
+const SidebarHeader = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const Brand = styled.div`
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+`;
+
+const BrandSub = styled.div`
+  font-size: 0.75rem;
+  opacity: 0.7;
+`;
+
+const Nav = styled.nav`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const NavItem = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(30, 60, 114, 0.3);
-  position: relative;
-  overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.05"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.05"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.05"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-    opacity: 0.3;
+  background: ${({ $active }) => ($active ? 'rgba(98, 126, 255, 0.18)' : 'transparent')};
+  color: ${({ $active }) => ($active ? '#e9eefc' : 'rgba(233, 238, 252, 0.7)')};
+  border: 1px solid ${({ $active }) => ($active ? 'rgba(120, 150, 255, 0.35)' : 'transparent')};
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  text-align: left;
+
+  &:hover {
+    background: rgba(98, 126, 255, 0.12);
   }
 `;
 
-const Title = styled.h1`
-  margin: 0 0 10px 0;
-  font-size: 1.25rem;
-  font-weight: 800;
-  background: linear-gradient(45deg, #ffffff, #e3f2fd);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  position: relative;
-  z-index: 1;
-  
-  ${mediaQueries.sm} {
-    font-size: 1.375rem;
-  }
-  
-  ${mediaQueries.md} {
-    font-size: 1.5rem;
-  }
-  
-  ${mediaQueries.lg} {
-    font-size: 1.625rem;
-  }
-  
-  ${mediaQueries.xl} {
-    font-size: 1.75rem;
-  }
+const SidebarFooter = styled.div`
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.75rem;
+  opacity: 0.7;
 `;
 
-const Subtitle = styled.p`
-  margin: 0 0 15px 0;
-  font-size: 0.875rem;
-  opacity: 0.95;
-  font-weight: 300;
-  position: relative;
-  z-index: 1;
-  
-  ${mediaQueries.sm} {
-    font-size: 0.9rem;
-  }
-  
-  ${mediaQueries.md} {
-    font-size: 1rem;
-  }
-  
-  ${mediaQueries.lg} {
-    font-size: 1.125rem;
-  }
-`;
-
-const BrandTagline = styled.div`
+const StatusPill = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.15);
-  padding: 8px 16px;
-  border-radius: 25px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  position: relative;
-  z-index: 1;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 255, 179, 0.12);
+  color: #8dffd8;
+  font-weight: 600;
+  font-size: 0.75rem;
 `;
 
-const MainContent = styled.main`
+const Content = styled.div`
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.75rem;
-  margin-bottom: 20px;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  
-  ${mediaQueries.sm} {
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-  }
-  
-  ${mediaQueries.md} {
-    grid-template-columns: 1fr 1.5fr;
-    gap: 1.25rem;
-  }
-  
+
   ${mediaQueries.lg} {
-    grid-template-columns: 1fr 2fr;
-    gap: 1.5rem;
-  }
-  
-  ${mediaQueries.xl} {
-    grid-template-columns: 1fr 1.5fr 1fr;
-    gap: 2rem;
+    grid-template-columns: 1fr 360px;
   }
 `;
 
-const LeftPanel = styled.div`
+const MainCanvas = styled.main`
+  background: rgba(15, 20, 32, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  backdrop-filter: blur(16px);
+`;
+
+const CanvasHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
 `;
 
-const RightPanel = styled.div`
+const CanvasTitle = styled.div`
   display: flex;
   flex-direction: column;
+  gap: 4px;
 `;
 
-const Section = styled.section`
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-  border: 1px solid rgba(255,255,255,0.2);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow: hidden;
-  
-  &:hover {
-    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-    transform: translateY(-1px);
-  }
-  
-  ${mediaQueries.sm} {
-    padding: 18px;
-  }
-  
-  ${mediaQueries.md} {
-    padding: 20px;
-  }
+const CanvasTitleMain = styled.div`
+  font-size: 1.1rem;
+  font-weight: 600;
 `;
 
-const SectionTitle = styled.h2`
-  margin: 0 0 12px 0;
-  color: #333;
-  font-size: 1rem;
-  border-bottom: 1px solid #f0f0f0;
-  padding-bottom: 6px;
-  
-  ${mediaQueries.sm} {
-    font-size: 1.125rem;
-  }
-  
-  ${mediaQueries.md} {
-    font-size: 1.25rem;
-  }
-  
-  ${mediaQueries.lg} {
-    font-size: 1.375rem;
-  }
+const CanvasTitleSub = styled.div`
+  font-size: 0.85rem;
+  opacity: 0.7;
+`;
+
+const CanvasBody = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 320px;
+`;
+
+const ViewerToolbar = styled.div`
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+`;
+
+const ToolbarButton = styled.button`
+  background: ${({ $active }) => ($active ? 'rgba(98, 126, 255, 0.25)' : 'rgba(12, 16, 26, 0.6)')};
+  color: #e9eefc;
+  border: 1px solid ${({ $active }) => ($active ? 'rgba(120, 150, 255, 0.35)' : 'rgba(255, 255, 255, 0.08)')};
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+`;
+
+const ContextPanel = styled.aside`
+  background: rgba(18, 24, 40, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  backdrop-filter: blur(16px);
+`;
+
+const PanelSection = styled.section`
+  background: rgba(12, 16, 26, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 14px;
+`;
+
+const PanelTitle = styled.h3`
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
 `;
 
 function App() {
@@ -233,6 +225,7 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [status, setStatus] = useState({ show: false, type: 'idle', title: '', message: '' });
+  const [apiHealthy, setApiHealthy] = useState(true);
   
   // Folder processing state
   const [processingStatus, setProcessingStatus] = useState('idle');
@@ -250,11 +243,15 @@ function App() {
   const [showBoundingBoxes, setShowBoundingBoxes] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
   const [showBlurred, setShowBlurred] = useState(false);
+  const [resetViewerSignal, setResetViewerSignal] = useState(0);
 
   const checkApiHealth = useCallback(async () => {
     const result = await apiService.checkHealth();
     if (!result.success) {
+      setApiHealthy(false);
       showStatus('error', 'API Connection Failed', 'Cannot connect to detection server. Please ensure the server is running.');
+    } else {
+      setApiHealthy(true);
     }
   }, []);
 
@@ -559,106 +556,242 @@ function App() {
 
   return (
     <AppContainer>
-      <Navbar
-        currentMode={currentMode}
-        onModeChange={handleModeChange}
-        isProcessing={isProcessing}
-        processingStatus={processingStatus}
-        processedCount={processedCount}
-        totalCount={totalCount}
-      />
-      
-      {currentMode === 'single' && (
-        <>
-          <Header>
-            <Title>🛡️ Iden-Hide</Title>
-            <Subtitle>AI-Powered Anonymization Engine</Subtitle>
-            <BrandTagline>
-              🚀 Detect and hide faces & license plates with AI — ensuring privacy without losing image context
-            </BrandTagline>
-          </Header>
+      <Shell>
+        <Sidebar>
+          <SidebarHeader>
+            <Brand>Iden‑Hide</Brand>
+            <BrandSub>AI Privacy Studio</BrandSub>
+          </SidebarHeader>
+          <Nav>
+            <NavItem $active={currentMode === 'single'} onClick={() => handleModeChange('single')}>
+              Single Image
+            </NavItem>
+            <NavItem $active={currentMode === 'folder'} onClick={() => handleModeChange('folder')}>
+              Batch (Local)
+            </NavItem>
+            <NavItem $active={currentMode === 's3'} onClick={() => handleModeChange('s3')}>
+              Batch (S3)
+            </NavItem>
+            <NavItem $active={currentMode === 'history'} onClick={() => handleModeChange('history')}>
+              History / Outputs
+            </NavItem>
+            <NavItem $active={currentMode === 'settings'} onClick={() => handleModeChange('settings')}>
+              Settings
+            </NavItem>
+          </Nav>
+          <SidebarFooter>
+            <StatusPill>{apiHealthy ? 'API Connected' : 'API Offline'}</StatusPill>
+            <div>Device: CPU</div>
+          </SidebarFooter>
+        </Sidebar>
 
-      <StatusBar
-        status={status.type}
-        title={status.title}
-        message={status.message}
-        show={status.show}
-        onClose={() => setStatus(prev => ({ ...prev, show: false }))}
-      />
+        <Content>
+          <MainCanvas>
+            <CanvasHeader>
+              <CanvasTitle>
+                <CanvasTitleMain>
+                  {currentMode === 'single' && 'Single Image Workspace'}
+                  {currentMode === 'folder' && 'Batch Processing (Local)'}
+                  {currentMode === 's3' && 'Batch Processing (S3)'}
+                  {currentMode === 'history' && 'History & Outputs'}
+                  {currentMode === 'settings' && 'System Settings'}
+                </CanvasTitleMain>
+                <CanvasTitleSub>
+                  {currentMode === 'single' && `${processedImages.length} results • ${files.length} selected`}
+                  {currentMode === 'folder' && `${processedCount}/${totalCount || 0} processed`}
+                  {currentMode === 's3' && `${processedCount}/${totalCount || 0} processed`}
+                  {currentMode === 'history' && 'Recent processed outputs'}
+                  {currentMode === 'settings' && 'Configure detection defaults'}
+                </CanvasTitleSub>
+              </CanvasTitle>
+            </CanvasHeader>
 
-      <MainContent>
-        <LeftPanel>
-          <Section>
-            <SectionTitle>📁 Upload Images</SectionTitle>
-            <FileUpload
-              onFilesSelected={handleFilesSelected}
-              maxFiles={10}
-            />
-          </Section>
+            {currentMode === 'single' && (
+              <ViewerToolbar>
+                <ToolbarButton $active={showBoundingBoxes} onClick={() => setShowBoundingBoxes(!showBoundingBoxes)}>
+                  Boxes
+                </ToolbarButton>
+                <ToolbarButton
+                  $active={showLabels}
+                  onClick={() => setShowLabels(!showLabels)}
+                  disabled={!showBoundingBoxes}
+                >
+                  Labels
+                </ToolbarButton>
+                {processedImages.some(img => img.blurred) && (
+                  <ToolbarButton $active={showBlurred} onClick={() => setShowBlurred(!showBlurred)}>
+                    {showBlurred ? 'Blurred' : 'Original'}
+                  </ToolbarButton>
+                )}
+                <ToolbarButton onClick={() => setResetViewerSignal(prev => prev + 1)}>
+                  Reset View
+                </ToolbarButton>
+              </ViewerToolbar>
+            )}
 
-          <Section>
-            <DetectionControls
-              detectFace={detectFace}
-              detectLicensePlate={detectLicensePlate}
-              enableBlur={enableBlur}
-              faceBlurStrength={faceBlurStrength}
-              plateBlurStrength={plateBlurStrength}
-              showBoundingBoxes={showBoundingBoxes}
-              showLabels={showLabels}
-              showBlurred={showBlurred}
-              onDetectFaceChange={setDetectFace}
-              onDetectLicensePlateChange={setDetectLicensePlate}
-              onEnableBlurChange={setEnableBlur}
-              onFaceBlurStrengthChange={setFaceBlurStrength}
-              onPlateBlurStrengthChange={setPlateBlurStrength}
-              onShowBoundingBoxesChange={() => setShowBoundingBoxes(!showBoundingBoxes)}
-              onShowLabelsChange={() => setShowLabels(!showLabels)}
-              onShowBlurredChange={() => setShowBlurred(!showBlurred)}
-              onDetect={handleDetect}
-              onBlur={handleBlur}
-              onClear={handleClearFiles}
-              isProcessing={isProcessing}
-              hasFiles={files.length > 0}
-            />
-          </Section>
-        </LeftPanel>
+            {currentMode === 'single' && (
+              <StatusBar
+                status={status.type}
+                title={status.title}
+                message={status.message}
+                show={status.show}
+                onClose={() => setStatus(prev => ({ ...prev, show: false }))}
+              />
+            )}
 
-        <RightPanel>
-          <Section>
-            <SectionTitle>🖼️ Processed Images ({processedImages.length})</SectionTitle>
-            <ImageGallery
-              images={processedImages}
-              onDownload={handleDownload}
-              onDelete={handleDeleteImage}
-              isDownloading={isDownloading}
-              showBoundingBoxes={showBoundingBoxes}
-              showLabels={showLabels}
-              showBlurred={showBlurred}
-              onToggleBoundingBoxes={() => setShowBoundingBoxes(!showBoundingBoxes)}
-              onToggleLabels={() => setShowLabels(!showLabels)}
-              onToggleBlurred={() => setShowBlurred(!showBlurred)}
-            />
-          </Section>
-        </RightPanel>
-      </MainContent>
-        </>
-      )}
+            <CanvasBody>
+              {currentMode === 'single' && (
+                <ImageGallery
+                  images={processedImages}
+                  onDownload={handleDownload}
+                  onDelete={handleDeleteImage}
+                  isDownloading={isDownloading}
+                  showBoundingBoxes={showBoundingBoxes}
+                  showLabels={showLabels}
+                  showBlurred={showBlurred}
+                  onToggleBoundingBoxes={() => setShowBoundingBoxes(!showBoundingBoxes)}
+                  onToggleLabels={() => setShowLabels(!showLabels)}
+                  onToggleBlurred={() => setShowBlurred(!showBlurred)}
+                  showHeader={false}
+                  compact
+                  showViewerControls={false}
+                  enableZoomPan
+                  resetSignal={resetViewerSignal}
+                />
+              )}
 
-      {currentMode === 'folder' && (
-        <FolderProcessor
-          onProcessingStart={handleProcessingStart}
-          onProcessingComplete={handleProcessingComplete}
-          onProgressUpdate={handleProgressUpdate}
-        />
-      )}
+              {currentMode === 'folder' && (
+                <FolderProcessor
+                  onProcessingStart={handleProcessingStart}
+                  onProcessingComplete={handleProcessingComplete}
+                  onProgressUpdate={handleProgressUpdate}
+                  detectFace={detectFace}
+                  detectLicensePlate={detectLicensePlate}
+                  enableBlur={enableBlur}
+                  faceBlurStrength={faceBlurStrength}
+                  plateBlurStrength={plateBlurStrength}
+                  embedded
+                />
+              )}
 
-      {currentMode === 's3' && (
-        <S3Processor
-          onProcessingStart={handleProcessingStart}
-          onProcessingComplete={handleProcessingComplete}
-          onProgressUpdate={handleProgressUpdate}
-        />
-      )}
+              {currentMode === 's3' && (
+                <S3Processor
+                  onProcessingStart={handleProcessingStart}
+                  onProcessingComplete={handleProcessingComplete}
+                  onProgressUpdate={handleProgressUpdate}
+                  detectFace={detectFace}
+                  detectLicensePlate={detectLicensePlate}
+                  faceBlurStrength={faceBlurStrength}
+                  plateBlurStrength={plateBlurStrength}
+                  embedded
+                  showDetectionControls={false}
+                />
+              )}
+
+              {currentMode === 'history' && (
+                <div>History view is coming next. Your output images are available on the server.</div>
+              )}
+
+              {currentMode === 'settings' && (
+                <div>Settings view is coming next. Configure defaults and model selection here.</div>
+              )}
+            </CanvasBody>
+          </MainCanvas>
+
+          <ContextPanel>
+            {currentMode === 'single' && (
+              <>
+                <PanelSection>
+                  <PanelTitle>Upload</PanelTitle>
+                  <FileUpload onFilesSelected={handleFilesSelected} maxFiles={10} />
+                </PanelSection>
+                <PanelSection>
+                  <PanelTitle>Detection & Blur</PanelTitle>
+                  <DetectionControls
+                    detectFace={detectFace}
+                    detectLicensePlate={detectLicensePlate}
+                    enableBlur={enableBlur}
+                    faceBlurStrength={faceBlurStrength}
+                    plateBlurStrength={plateBlurStrength}
+                    showBoundingBoxes={showBoundingBoxes}
+                    showLabels={showLabels}
+                    showBlurred={showBlurred}
+                    onDetectFaceChange={setDetectFace}
+                    onDetectLicensePlateChange={setDetectLicensePlate}
+                    onEnableBlurChange={setEnableBlur}
+                    onFaceBlurStrengthChange={setFaceBlurStrength}
+                    onPlateBlurStrengthChange={setPlateBlurStrength}
+                    onShowBoundingBoxesChange={() => setShowBoundingBoxes(!showBoundingBoxes)}
+                    onShowLabelsChange={() => setShowLabels(!showLabels)}
+                    onShowBlurredChange={() => setShowBlurred(!showBlurred)}
+                    onDetect={handleDetect}
+                    onBlur={handleBlur}
+                    onClear={handleClearFiles}
+                    isProcessing={isProcessing}
+                    hasFiles={files.length > 0}
+                    showDisplayOptions={false}
+                  />
+                </PanelSection>
+              </>
+            )}
+
+            {currentMode !== 'single' && (
+              <>
+                <PanelSection>
+                  <PanelTitle>Configuration</PanelTitle>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px', color: 'rgba(233, 238, 252, 0.75)' }}>
+                    <label>
+                      <input type="checkbox" checked={detectFace} onChange={() => setDetectFace(!detectFace)} />
+                      <span style={{ marginLeft: '8px' }}>Detect faces</span>
+                    </label>
+                    <label>
+                      <input type="checkbox" checked={detectLicensePlate} onChange={() => setDetectLicensePlate(!detectLicensePlate)} />
+                      <span style={{ marginLeft: '8px' }}>Detect plates</span>
+                    </label>
+                    <label>
+                      <input type="checkbox" checked={enableBlur} onChange={() => setEnableBlur(!enableBlur)} />
+                      <span style={{ marginLeft: '8px' }}>Enable blur</span>
+                    </label>
+                    {enableBlur && (
+                      <>
+                        <label>
+                          Face blur strength: {faceBlurStrength}
+                          <input
+                            type="range"
+                            min="1"
+                            max="100"
+                            value={faceBlurStrength}
+                            onChange={(e) => setFaceBlurStrength(parseInt(e.target.value))}
+                            style={{ width: '100%' }}
+                          />
+                        </label>
+                        <label>
+                          Plate blur strength: {plateBlurStrength}
+                          <input
+                            type="range"
+                            min="1"
+                            max="100"
+                            value={plateBlurStrength}
+                            onChange={(e) => setPlateBlurStrength(parseInt(e.target.value))}
+                            style={{ width: '100%' }}
+                          />
+                        </label>
+                      </>
+                    )}
+                  </div>
+                </PanelSection>
+
+                <PanelSection>
+                  <PanelTitle>Job Status</PanelTitle>
+                  <div>Status: {processingStatus}</div>
+                  <div>Processed: {processedCount}</div>
+                  <div>Total: {totalCount}</div>
+                </PanelSection>
+              </>
+            )}
+          </ContextPanel>
+        </Content>
+      </Shell>
 
       <ToastContainer />
     </AppContainer>

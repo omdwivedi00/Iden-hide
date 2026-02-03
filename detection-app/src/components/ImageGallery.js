@@ -237,7 +237,23 @@ const EmptyState = styled.div`
   color: #666;
 `;
 
-const ImageGallery = ({ images, onDownload, onDelete, isDownloading, showBoundingBoxes, showLabels, showBlurred, onToggleBoundingBoxes, onToggleLabels, onToggleBlurred }) => {
+const ImageGallery = ({ 
+  images, 
+  onDownload, 
+  onDelete, 
+  isDownloading, 
+  showBoundingBoxes, 
+  showLabels, 
+  showBlurred, 
+  onToggleBoundingBoxes, 
+  onToggleLabels, 
+  onToggleBlurred,
+  showHeader = true,
+  compact = false,
+  showViewerControls = true,
+  enableZoomPan = true,
+  resetSignal = 0
+}) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
 
@@ -291,7 +307,7 @@ const ImageGallery = ({ images, onDownload, onDelete, isDownloading, showBoundin
 
   if (images.length === 0) {
     return (
-      <GalleryContainer>
+      <GalleryContainer style={compact ? { background: 'transparent', boxShadow: 'none', padding: 0 } : undefined}>
         <EmptyState>
           <h3>No images processed yet</h3>
           <p>Upload some images and run detection to see results here.</p>
@@ -301,25 +317,27 @@ const ImageGallery = ({ images, onDownload, onDelete, isDownloading, showBoundin
   }
 
   return (
-    <GalleryContainer>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h3>Processed Images ({images.length})</h3>
-        
-        <ViewControls>
-          <ViewButton
-            active={viewMode === 'grid'}
-            onClick={() => setViewMode('grid')}
-          >
-            Grid View
-          </ViewButton>
-          <ViewButton
-            active={viewMode === 'list'}
-            onClick={() => setViewMode('list')}
-          >
-            List View
-          </ViewButton>
-        </ViewControls>
-      </div>
+    <GalleryContainer style={compact ? { background: 'transparent', boxShadow: 'none', padding: 0 } : undefined}>
+      {showHeader && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3>Processed Images ({images.length})</h3>
+          
+          <ViewControls>
+            <ViewButton
+              active={viewMode === 'grid'}
+              onClick={() => setViewMode('grid')}
+            >
+              Grid View
+            </ViewButton>
+            <ViewButton
+              active={viewMode === 'list'}
+              onClick={() => setViewMode('list')}
+            >
+              List View
+            </ViewButton>
+          </ViewControls>
+        </div>
+      )}
       
       <GalleryGrid style={{ gridTemplateColumns: viewMode === 'list' ? '1fr' : 'repeat(auto-fill, minmax(400px, 1fr))' }}>
         {images.map((image, index) => (
@@ -334,6 +352,9 @@ const ImageGallery = ({ images, onDownload, onDelete, isDownloading, showBoundin
               onToggleBoundingBoxes={onToggleBoundingBoxes}
               onToggleLabels={onToggleLabels}
               onToggleBlurred={toggleBlurred}
+              showControlsOverlay={showViewerControls}
+              enableZoomPan={enableZoomPan}
+              resetSignal={resetSignal}
             />
             {/* Click indicator */}
             <div style={{

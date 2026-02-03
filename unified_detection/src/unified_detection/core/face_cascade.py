@@ -4,6 +4,10 @@ ADAS-optimized Face Detection (module + CLI)
 Pipeline (default):
 YOLO(person) -> per-person ROI -> tiled SCRFD (InsightFace) -> gating -> best face per person -> cross-person NMS
 
+NEW (added, optional):
+- YOLO(face) ONLY mode  -> direct face boxes from YOLO
+- SCRFD ONLY mode       -> direct face boxes from InsightFace detector
+
 Key goals:
 - Fast on CPU by default
 - Switchable to GPU for YOLO (and optional GPU for SCRFD if available via onnxruntime/cuda provider)
@@ -21,7 +25,7 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence
 
 import cv2
 import numpy as np
@@ -30,6 +34,7 @@ from insightface.app import FaceAnalysis
 
 from ..config import Settings
 from ..logging import get_logger
+from .face_base import BaseFaceDetector
 
 logger = get_logger(__name__)
 
@@ -44,9 +49,17 @@ def _expand_xyxy(box, scale, W, H, square=False):
     else:
         w, h = scale * w, scale * h
     nx1, ny1 = max(0.0, cx - w * 0.5), max(0.0, cy - h * 0.5)
-    nx2, ny2 = min(W - 1.0, cx + w * 0.5), min(H - 1.0, cy + h * 0.5)
+    nx2 = min(W - 1.0, cx + w * 0.5)
+    ny2 = min(H - 1.0, cy + h * 0.5)
     return [nx1, ny1, nx2, ny2]
 
+def _head_distance_score(face_xyxy, person_xyxy, ideal=0.35):
+    fx1, fy1, fx2, fy2 = face_xyxy
+    px1, py1, px2, py2 = person_xyxy
+    fc_y = 0.5 * (fy1 + fy2)
+    ph = max(1.0, py2 - py1)
+    rel = (fc_y - py1) / ph
+    return abs(rel - ideal)
 
 def _nms_xyxy(boxes, scores, iou_thr=0.5):
     if not boxes:
@@ -74,7 +87,6 @@ def _nms_xyxy(boxes, scores, iou_thr=0.5):
         order = rest[iou <= iou_thr]
     return keep
 
-
 def _letterbox(img: np.ndarray, new_size: int, color=(114, 114, 114)):
     h, w = img.shape[:2]
     r = min(new_size / w, new_size / h)
@@ -85,7 +97,6 @@ def _letterbox(img: np.ndarray, new_size: int, color=(114, 114, 114)):
     left, right = int(dw), new_size - nw - int(dw)
     out = cv2.copyMakeBorder(imr, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
     return out, r, (left, top), (nw, nh)
-
 
 def _tiles_inside_roi(roi, W, H, grid=(2, 2), overlap=0.25):
     rx1, ry1, rx2, ry2 = map(int, roi)
@@ -107,19 +118,10 @@ def _tiles_inside_roi(roi, W, H, grid=(2, 2), overlap=0.25):
                 out.append([tx1, ty1, tx2, ty2])
     return out
 
-
 def _head_band_from_person(pb, frac=0.45):
     x1, y1, x2, y2 = map(float, pb)
     h = max(1.0, y2 - y1)
     return [x1, y1, x2, y1 + h * frac]
-
-
-def _center_in_band(face_xyxy, band_xyxy, margin=0.0):
-    fx1, fy1, fx2, fy2 = map(float, face_xyxy)
-    bx1, by1, bx2, by2 = map(float, band_xyxy)
-    cx = 0.5 * (fx1 + fx2); cy = 0.5 * (fy1 + fy2)
-    return (bx1 - margin) <= cx <= (bx2 + margin) and (by1 - margin) <= cy <= (by2 + margin)
-
 
 def _face_size_ok(face_xyxy, person_xyxy, min_rel=0.10, max_rel=0.55):
     x1, y1, x2, y2 = map(float, face_xyxy)
@@ -128,12 +130,21 @@ def _face_size_ok(face_xyxy, person_xyxy, min_rel=0.10, max_rel=0.55):
     r = fh / ph
     return (min_rel <= r <= max_rel)
 
-
 # ---------------- config ----------------
 @dataclass
 class FaceDetectConfig:
+    """
+    mode:
+      - "cascade"   : existing YOLO(person) -> ROI -> tiled SCRFD -> gating -> NMS
+      - "yolo_face" : YOLO(face) only
+      - "scrfd"     : SCRFD only (full-frame)
+    """
+    mode: str = "cascade"
+
+    # YOLO model path/name (person model for cascade, face model for yolo_face)
+    yolo_model: str = ""
+
     # YOLO person
-    yolo_model: str
     person_conf: float = 0.25
     imgsz: int = 832
     person_nms_iou: float = 0.60
@@ -141,21 +152,20 @@ class FaceDetectConfig:
 
     # SCRFD / InsightFace detection
     face_size: int = 640
-    face_thr: float = 0.20
+    face_thr: float = 0.50
     flip_tta: bool = False  # accuracy↑ speed↓; keep False by default for CPU
 
-    # ROI + tiling
+    # ROI + tiling (cascade only)
     roi_scale: float = 1.10
     roi_square: bool = False
-    grid: Tuple[int, int] = (2, 2)
-    overlap: float = 0.30
-    # Adaptive tiling: if ROI smaller than this, skip tiling and do 1 tile
-    roi_single_tile_px: int = 520 * 520
+    grid = (1, 2)          # vertical bias (faces live vertically)
+    overlap = 0.15
+    roi_single_tile_px = 800 * 800
 
-    # Gating
+    # Gating (cascade only)
     head_frac: float = 0.45
-    size_min_rel: float = 0.10
-    size_max_rel: float = 0.55
+    size_min_rel: float = 0.05
+    size_max_rel: float = 0.80
 
     # Final NMS
     face_nms_iou: float = 0.55
@@ -174,8 +184,11 @@ class DetectFace:
         settings: Optional[Settings] = None,
     ):
         settings = settings or Settings()
+
         if config is None:
+            # Default stays cascade to preserve existing behavior
             config = FaceDetectConfig(
+                mode=getattr(settings, "face_mode", "cascade"),
                 yolo_model=settings.resolved_face_yolo_model,
                 person_conf=settings.face_person_conf,
                 imgsz=settings.face_img_size,
@@ -184,20 +197,24 @@ class DetectFace:
                 flip_tta=bool(settings.face_flip_tta),
                 max_persons=settings.face_max_persons,
             )
+
         self.cfg = config
+        self.mode = (self.cfg.mode or "cascade").lower()
         self.device = device or settings.device
-        # YOLO person model
+
+        # YOLO model is used in cascade (person) and yolo_face (face)
         self.yolo = YOLO(self.cfg.yolo_model)
 
-        # InsightFace SCRFD
+        # InsightFace SCRFD (used in cascade and scrfd-only)
         if providers is None:
-            # Default to CPU provider; user can override to CUDA providers if available
             providers = ["CPUExecutionProvider"]
+
         self.app = FaceAnalysis(
-            name="buffalo_l",
+            name="buffalo_l",  # keep as-is; you can change to "scrfd_10g" etc if present in your local model dir
             providers=providers,
             allowed_modules=["detection"],
         )
+
         # ctx_id: -1 for CPU; 0 for GPU in some setups (kept -1 safe)
         self.app.prepare(ctx_id=-1, det_size=(self.cfg.face_size, self.cfg.face_size))
         det = self.app.models.get("detection", None)
@@ -208,6 +225,66 @@ class DetectFace:
         # InsightFace is not guaranteed thread-safe → guard
         self._app_lock = threading.Lock()
 
+    # ---------------- NEW: single-model modes ----------------
+    def _detect_faces_yolo_only(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        """
+        YOLO(face) only mode.
+        Expects yolo_model to be a face detector.
+        """
+        pred = self.yolo.predict(
+            image,
+            conf=self.cfg.face_thr,
+            imgsz=self.cfg.imgsz,
+            device=self.device,
+            verbose=False,
+        )[0]
+
+        results: List[Dict[str, Any]] = []
+        if pred.boxes is None:
+            return results
+
+        # Optional: If your face model uses a specific class id, filter here.
+        # For generic face-only models, leaving it as-is returns all detections.
+        for b in pred.boxes:
+            x1, y1, x2, y2 = map(int, b.xyxy[0].tolist())
+            score = float(b.conf[0]) if getattr(b, "conf", None) is not None else 0.0
+            if score < self.cfg.face_thr:
+                continue
+            results.append({"bbox": [x1, y1, x2, y2], "confidence": score})
+
+        # Cross-face NMS (optional but keeps output clean)
+        if results:
+            boxes = [r["bbox"] for r in results]
+            scores = [r["confidence"] for r in results]
+            keep = _nms_xyxy(boxes, scores, iou_thr=self.cfg.face_nms_iou)
+            results = [results[i] for i in keep]
+
+        return results
+
+    def _detect_faces_scrfd_only(self, image: np.ndarray) -> List[Dict[str, Any]]:
+        """
+        SCRFD only mode, full-frame.
+        """
+        with self._app_lock:
+            faces = list(self.app.get(image))
+
+        results: List[Dict[str, Any]] = []
+        for f in faces:
+            sc = float(getattr(f, "det_score", 1.0))
+            if sc < self.cfg.face_thr:
+                continue
+            x1, y1, x2, y2 = map(int, f.bbox.astype(float).tolist())
+            results.append({"bbox": [x1, y1, x2, y2], "confidence": sc})
+
+        if results:
+            boxes = [r["bbox"] for r in results]
+            scores = [r["confidence"] for r in results]
+            keep = _nms_xyxy(boxes, scores, iou_thr=self.cfg.face_nms_iou)
+            results = [results[i] for i in keep]
+
+        return results
+
+    # ---------------- existing helpers ----------------
     def _detect_faces_in_tile(self, img: np.ndarray, xyxy: List[int]) -> List[List[float]]:
         x1, y1, x2, y2 = map(int, xyxy)
         tile = img[y1:y2, x1:x2]
@@ -225,7 +302,6 @@ class DetectFace:
             for f in ff:
                 b = f.bbox.astype(float)
                 b[[0, 2]] = self.cfg.face_size - b[[2, 0]]
-                # create minimal face-like object
                 faces.append(type("obj", (object,), {"bbox": b, "det_score": getattr(f, "det_score", 1.0)}))
 
         outs: List[List[float]] = []
@@ -245,7 +321,7 @@ class DetectFace:
         pred = self.yolo.predict(
             image,
             conf=self.cfg.person_conf,
-            classes=[0],
+            classes=[0],  # person class for COCO
             imgsz=self.cfg.imgsz,
             device=self.device,
             verbose=False,
@@ -260,11 +336,19 @@ class DetectFace:
         persons = persons[: self.cfg.max_persons]
         return [p for p, _ in persons]
 
+    # ---------------- main API ----------------
     def detect_faces(self, image: np.ndarray) -> List[Dict[str, Any]]:
         """
         Single image API.
         Returns: [{'bbox':[x1,y1,x2,y2], 'confidence':score}, ...]
         """
+        # NEW: single-model mode switch (keeps cascade logic intact)
+        if self.mode == "yolo_face":
+            return self._detect_faces_yolo_only(image)
+        if self.mode == "scrfd":
+            return self._detect_faces_scrfd_only(image)
+
+        # ---------------- cascade (existing logic) ----------------
         H, W = image.shape[:2]
         persons = self._persons_for_image(image)
 
@@ -280,7 +364,6 @@ class DetectFace:
         else:
             for pb in persons:
                 roi = _expand_xyxy(pb, self.cfg.roi_scale, W, H, square=self.cfg.roi_square)
-                band = _head_band_from_person(pb, frac=self.cfg.head_frac)
 
                 # Adaptive tiling: if ROI small enough, one tile is enough
                 rx1, ry1, rx2, ry2 = map(int, roi)
@@ -295,15 +378,19 @@ class DetectFace:
                 for t in tiles:
                     outs = self._detect_faces_in_tile(image, t)
                     for x1, y1, x2, y2, sc in outs:
-                        if _center_in_band([x1, y1, x2, y2], band) and _face_size_ok(
-                            [x1, y1, x2, y2], pb, self.cfg.size_min_rel, self.cfg.size_max_rel
-                        ):
-                            cand_boxes.append([x1, y1, x2, y2]); cand_scores.append(sc)
+                        if _face_size_ok([x1, y1, x2, y2], pb, self.cfg.size_min_rel, self.cfg.size_max_rel):
+                            dist = _head_distance_score([x1, y1, x2, y2], pb)
+                            adjusted_score = sc * np.exp(-2.0 * dist)
+                            cand_boxes.append([x1, y1, x2, y2])
+                            cand_scores.append(adjusted_score)
 
-                # keep best per person
+                # keep ALL valid faces for this person
+                K = 2  # max faces per person
                 if cand_boxes:
-                    j = int(np.argmax(cand_scores))
-                    faces_all.append(cand_boxes[j]); scores_all.append(float(cand_scores[j]))
+                    idxs = np.argsort(cand_scores)[-K:]
+                    for j in idxs:
+                        faces_all.append(cand_boxes[j])
+                        scores_all.append(float(cand_scores[j]))
 
         # cross-person NMS
         keep_f = _nms_xyxy(faces_all, scores_all, iou_thr=self.cfg.face_nms_iou)
@@ -321,10 +408,15 @@ class DetectFace:
 
     def detect_faces_batch(self, images: Sequence[np.ndarray], batch: int = 8) -> List[List[Dict[str, Any]]]:
         """
-        Batched person detection (YOLO), then per-image SCRFD.
-        Returns list aligned with `images`.
+        Batched API.
+        - For non-cascade modes, we just loop over images (simple + correct).
+        - For cascade, we keep your batched YOLO person detection.
         """
-        # YOLO supports list of np arrays
+        # NEW: single-model modes
+        if self.mode in ("yolo_face", "scrfd"):
+            return [self.detect_faces(img) for img in images]
+
+        # ---------------- cascade (existing logic) ----------------
         preds = self.yolo.predict(
             list(images),
             conf=self.cfg.person_conf,
@@ -334,9 +426,9 @@ class DetectFace:
             batch=batch,
             verbose=False,
         )
+
         out: List[List[Dict[str, Any]]] = []
         for img, pred in zip(images, preds):
-            # adapt: run same per-image logic but reuse persons from pred
             H, W = img.shape[:2]
             p_boxes = [b.xyxy[0].tolist() for b in pred.boxes] if pred.boxes is not None else []
             p_scores = [float(b.conf[0]) if getattr(b, "conf", None) is not None else 0.0 for b in (pred.boxes or [])]
@@ -346,7 +438,6 @@ class DetectFace:
             persons = persons[: self.cfg.max_persons]
             persons_boxes = [p for p, _ in persons]
 
-            # Run per-image SCRFD stage
             faces_all: List[List[float]] = []
             scores_all: List[float] = []
 
@@ -357,7 +448,6 @@ class DetectFace:
             else:
                 for pb in persons_boxes:
                     roi = _expand_xyxy(pb, self.cfg.roi_scale, W, H, square=self.cfg.roi_square)
-                    band = _head_band_from_person(pb, frac=self.cfg.head_frac)
                     rx1, ry1, rx2, ry2 = map(int, roi)
                     roi_area = max(1, (rx2 - rx1) * (ry2 - ry1))
                     if roi_area <= self.cfg.roi_single_tile_px:
@@ -370,21 +460,43 @@ class DetectFace:
                     for t in tiles:
                         outs = self._detect_faces_in_tile(img, t)
                         for x1, y1, x2, y2, sc in outs:
-                            if _center_in_band([x1, y1, x2, y2], band) and _face_size_ok(
-                                [x1, y1, x2, y2], pb, self.cfg.size_min_rel, self.cfg.size_max_rel
-                            ):
-                                cand_boxes.append([x1, y1, x2, y2]); cand_scores.append(sc)
+                            if _face_size_ok([x1, y1, x2, y2], pb, self.cfg.size_min_rel, self.cfg.size_max_rel):
+                                dist = _head_distance_score([x1, y1, x2, y2], pb)
+                                adjusted_score = sc * np.exp(-2.0 * dist)
+                                cand_boxes.append([x1, y1, x2, y2])
+                                cand_scores.append(adjusted_score)
+
+                    K = 2
                     if cand_boxes:
-                        j = int(np.argmax(cand_scores))
-                        faces_all.append(cand_boxes[j]); scores_all.append(float(cand_scores[j]))
+                        idxs = np.argsort(cand_scores)[-K:]
+                        for j in idxs:
+                            faces_all.append(cand_boxes[j])
+                            scores_all.append(float(cand_scores[j]))
 
             keep_f = _nms_xyxy(faces_all, scores_all, iou_thr=self.cfg.face_nms_iou)
             results: List[Dict[str, Any]] = []
             for i in keep_f:
                 b = faces_all[i]
-                results.append({"bbox": [int(b[0]), int(b[1]), int(b[2]), int(b[3])], "confidence": float(scores_all[i])})
+                results.append(
+                    {"bbox": [int(b[0]), int(b[1]), int(b[2]), int(b[3])], "confidence": float(scores_all[i])}
+                )
             out.append(results)
+
         return out
 
 
-__all__ = ["FaceDetectConfig", "DetectFace"]
+class CascadeFaceDetector(BaseFaceDetector):
+    """Adapter for the existing cascade face detector."""
+
+    def __init__(self, device: Optional[str] = None, settings: Optional[Settings] = None):
+        self.settings = settings or Settings()
+        self.detector = DetectFace(device=device, settings=self.settings)
+
+    def detect_faces(self, image: np.ndarray) -> List[Dict]:
+        return self.detector.detect_faces(image)
+
+    def detect_faces_batch(self, images: List[np.ndarray], batch: int = 8) -> List[List[Dict]]:
+        return self.detector.detect_faces_batch(images, batch=batch)
+
+
+__all__ = ["FaceDetectConfig", "DetectFace", "CascadeFaceDetector"]

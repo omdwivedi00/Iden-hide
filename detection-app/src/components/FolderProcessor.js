@@ -14,80 +14,65 @@ import ImageViewer from './ImageViewer';
 
 const FolderContainer = styled.div`
   ${layoutHelpers.container('xxl')}
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  min-height: 100vh;
-  
-  ${mediaQueries.xl} {
-    padding: 2rem;
-  }
-  
-  ${mediaQueries.xxl} {
-    padding: 3rem;
-  }
+  background: transparent;
+  min-height: 100%;
+  padding: 0;
 `;
 
 const Section = styled.div`
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  border: 1px solid rgba(255,255,255,0.2);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-    transform: translateY(-2px);
-  }
+  background: rgba(12, 16, 26, 0.6);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 `;
 
 const SectionTitle = styled.h2`
-  margin: 0 0 20px 0;
-  color: #333;
-  font-size: 24px;
+  margin: 0 0 16px 0;
+  color: #e9eefc;
+  font-size: 18px;
   display: flex;
   align-items: center;
   gap: 10px;
 `;
 
 const FolderInput = styled.div`
-  border: 2px dashed #ddd;
-  border-radius: 8px;
-  padding: 40px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 32px;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: #fafafa;
+  background: rgba(8, 12, 22, 0.5);
   
   &:hover {
-    border-color: #667eea;
-    background: #f0f4ff;
+    border-color: rgba(98, 126, 255, 0.6);
+    background: rgba(98, 126, 255, 0.08);
   }
   
   &.has-files {
-    border-color: #4caf50;
-    background: #f1f8e9;
+    border-color: rgba(39, 201, 124, 0.6);
+    background: rgba(39, 201, 124, 0.08);
   }
 `;
 
 const FolderInputText = styled.div`
-  color: #666;
-  font-size: 16px;
-  margin-bottom: 10px;
+  color: rgba(233, 238, 252, 0.85);
+  font-size: 15px;
+  margin-bottom: 8px;
 `;
 
 const FolderInputSubtext = styled.div`
-  color: #999;
-  font-size: 14px;
+  color: rgba(233, 238, 252, 0.5);
+  font-size: 13px;
 `;
 
 const FileList = styled.div`
-  margin-top: 20px;
+  margin-top: 16px;
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid #eee;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
   padding: 10px;
 `;
 
@@ -96,7 +81,7 @@ const FileItem = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   
   &:last-child {
     border-bottom: none;
@@ -115,12 +100,12 @@ const FileIcon = styled.span`
 `;
 
 const FileName = styled.span`
-  color: #333;
+  color: #e9eefc;
   font-size: 14px;
 `;
 
 const FileSize = styled.span`
-  color: #666;
+  color: rgba(233, 238, 252, 0.6);
   font-size: 12px;
 `;
 
@@ -301,7 +286,13 @@ const ActionButton = styled.button`
 const FolderProcessor = ({ 
   onProcessingStart, 
   onProcessingComplete, 
-  onProgressUpdate 
+  onProgressUpdate,
+  detectFace = true,
+  detectLicensePlate = true,
+  enableBlur = true,
+  faceBlurStrength = 25,
+  plateBlurStrength = 20,
+  embedded = true
 }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -315,7 +306,11 @@ const FolderProcessor = ({
   const [viewerIndex, setViewerIndex] = useState(0);
   
   // Image viewer settings for each result
-  const [imageViewerSettings, setImageViewerSettings] = useState({});
+  const [displaySettings, setDisplaySettings] = useState({
+    showBoundingBoxes: true,
+    showLabels: true,
+    showBlurred: false
+  });
   
   // Parallel processing settings
   const [useParallelProcessing, setUseParallelProcessing] = useState(false);
@@ -365,11 +360,11 @@ const FolderProcessor = ({
         
         try {
           const parallelResult = await apiService.processBatchParallel(selectedFiles, {
-            detectFace: true,
-            detectLicensePlate: true,
-            enableBlur: true,
-            faceBlurStrength: 25,
-            plateBlurStrength: 20,
+            detectFace,
+            detectLicensePlate,
+            enableBlur,
+            faceBlurStrength,
+            plateBlurStrength,
             maxWorkers: maxWorkers
           });
 
@@ -434,8 +429,8 @@ const FolderProcessor = ({
               // Process detection
               const detectionResult = await apiService.detectObjects(
                 file,
-                true, // detect_face
-                true  // detect_license_plate
+                detectFace,
+                detectLicensePlate
               );
 
               if (!detectionResult.success) {
@@ -443,15 +438,18 @@ const FolderProcessor = ({
               }
 
               // Process blur
-              const blurResult = await apiService.blurObjects(
-                file,
-                true, // detect_face
-                true, // detect_license_plate
-                25,   // face_blur_strength
-                20    // plate_blur_strength
-              );
+              let blurResult = null;
+              if (enableBlur) {
+                blurResult = await apiService.blurObjects(
+                  file,
+                  detectFace,
+                  detectLicensePlate,
+                  faceBlurStrength,
+                  plateBlurStrength
+                );
+              }
 
-              if (!blurResult.success) {
+              if (enableBlur && !blurResult.success) {
                 throw new Error(blurResult.error);
               }
 
@@ -461,8 +459,8 @@ const FolderProcessor = ({
                 filename: file.name,
                 file: file,
                 preview: URL.createObjectURL(file),
-                detection: detectionResult.data,  // This contains {detections: [...], total_faces: int, total_license_plates: int}
-                blurred: blurResult.data,
+                detection: detectionResult.data,
+                blurred: blurResult?.data || null,
                 timestamp: new Date().toISOString()
               });
 
@@ -490,8 +488,8 @@ const FolderProcessor = ({
             // Process detection
             const detectionResult = await apiService.detectObjects(
               file,
-              true, // detect_face
-              true  // detect_license_plate
+              detectFace,
+              detectLicensePlate
             );
 
             if (!detectionResult.success) {
@@ -499,16 +497,19 @@ const FolderProcessor = ({
             }
 
             // Process blur
-            const blurResult = await apiService.blurObjects(
-              file,
-              true, // detect_face
-              true, // detect_license_plate
-              25,   // face_blur_strength
-              20    // plate_blur_strength
-            );
+            let blurResult = null;
+            if (enableBlur) {
+              blurResult = await apiService.blurObjects(
+                file,
+                detectFace,
+                detectLicensePlate,
+                faceBlurStrength,
+                plateBlurStrength
+              );
 
-            if (!blurResult.success) {
-              throw new Error(blurResult.error);
+              if (!blurResult.success) {
+                throw new Error(blurResult.error);
+              }
             }
 
             // Store result with EXACT same structure as single image processing
@@ -517,8 +518,8 @@ const FolderProcessor = ({
               filename: file.name,
               file: file,
               preview: URL.createObjectURL(file),
-              detection: detectionResult.data,  // This contains {detections: [...], total_faces: int, total_license_plates: int}
-              blurred: blurResult.data,
+              detection: detectionResult.data,
+              blurred: blurResult?.data || null,
               timestamp: new Date().toISOString()
             });
 
@@ -543,7 +544,19 @@ const FolderProcessor = ({
       setIsProcessing(false);
       setCurrentFile('');
     }
-  }, [selectedFiles, onProcessingStart, onProcessingComplete, onProgressUpdate, useParallelProcessing, maxWorkers]);
+  }, [
+    selectedFiles,
+    onProcessingStart,
+    onProcessingComplete,
+    onProgressUpdate,
+    useParallelProcessing,
+    maxWorkers,
+    detectFace,
+    detectLicensePlate,
+    enableBlur,
+    faceBlurStrength,
+    plateBlurStrength
+  ]);
 
   const downloadZip = useCallback(async () => {
     if (results.length === 0) {
@@ -636,71 +649,40 @@ const FolderProcessor = ({
   }, []);
 
   // Image viewer control functions
-  const toggleBoundingBoxes = useCallback((resultIndex) => {
-    setImageViewerSettings(prev => ({
+  const toggleBoundingBoxes = useCallback(() => {
+    setDisplaySettings(prev => ({
       ...prev,
-      [resultIndex]: {
-        ...prev[resultIndex],
-        showBoundingBoxes: !prev[resultIndex]?.showBoundingBoxes
-      }
+      showBoundingBoxes: !prev.showBoundingBoxes
     }));
   }, []);
 
-  const toggleLabels = useCallback((resultIndex) => {
-    setImageViewerSettings(prev => ({
+  const toggleLabels = useCallback(() => {
+    setDisplaySettings(prev => ({
       ...prev,
-      [resultIndex]: {
-        ...prev[resultIndex],
-        showLabels: !prev[resultIndex]?.showLabels
-      }
+      showLabels: !prev.showLabels
     }));
   }, []);
 
-  const toggleBlurred = useCallback((resultIndex) => {
-    setImageViewerSettings(prev => ({
+  const toggleBlurred = useCallback(() => {
+    setDisplaySettings(prev => ({
       ...prev,
-      [resultIndex]: {
-        ...prev[resultIndex],
-        showBlurred: !prev[resultIndex]?.showBlurred
-      }
+      showBlurred: !prev.showBlurred
     }));
   }, []);
 
 
   return (
     <FolderContainer>
-      <Section style={{ textAlign: 'center', marginBottom: '30px' }}>
-        <h1 style={{ 
-          margin: '0 0 15px 0', 
-          fontSize: '3rem', 
-          fontWeight: '800',
-          background: 'linear-gradient(45deg, #1e3c72, #667eea)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text'
-        }}>
-          🛡️ Iden-Hide
-        </h1>
-        <p style={{ 
-          margin: '0 0 20px 0', 
-          fontSize: '1.3rem', 
-          color: '#666',
-          fontWeight: '300'
-        }}>
-          AI-Powered Anonymization Engine
-        </p>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: 'rgba(30, 60, 114, 0.1)',
-          padding: '8px 16px',
-          borderRadius: '25px',
-          fontSize: '0.9rem',
-          fontWeight: '500',
-          color: '#1e3c72'
-        }}>
-          🚀 Batch process multiple images with AI detection and privacy protection
+      <Section>
+        <SectionTitle>Batch Pipeline</SectionTitle>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', color: 'rgba(233, 238, 252, 0.75)' }}>
+          <span>1) Select</span>
+          <span>→</span>
+          <span>2) Configure</span>
+          <span>→</span>
+          <span>3) Run</span>
+          <span>→</span>
+          <span>4) Review</span>
         </div>
       </Section>
       
@@ -750,8 +732,8 @@ const FolderProcessor = ({
         )}
 
         {/* Parallel Processing Options */}
-        <Section style={{ marginTop: '20px', padding: '15px', background: '#f8f9fa', borderRadius: '8px' }}>
-          <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>⚡ Processing Options</h3>
+        <Section style={{ marginTop: '20px', padding: '15px', background: 'rgba(8, 12, 22, 0.5)', borderRadius: '10px' }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#e9eefc', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Processing Options</h3>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -850,15 +832,34 @@ const FolderProcessor = ({
           <SectionTitle>
             📊 Processing Results ({results.length} images)
           </SectionTitle>
+
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <ControlButton
+              variant="primary"
+              onClick={toggleBoundingBoxes}
+              disabled={isProcessing}
+            >
+              {displaySettings.showBoundingBoxes ? 'Hide Boxes' : 'Show Boxes'}
+            </ControlButton>
+            <ControlButton
+              onClick={toggleLabels}
+              disabled={isProcessing || !displaySettings.showBoundingBoxes}
+            >
+              {displaySettings.showLabels ? 'Hide Labels' : 'Show Labels'}
+            </ControlButton>
+            {results.some(r => r.blurred) && (
+              <ControlButton
+                onClick={toggleBlurred}
+                disabled={isProcessing}
+              >
+                {displaySettings.showBlurred ? 'Original View' : 'Blurred View'}
+              </ControlButton>
+            )}
+          </div>
           
           <ResultsGrid>
             {results.map((result, index) => {
               console.log(`🎨 Rendering result ${index}:`, result);
-              const settings = imageViewerSettings[index] || {
-                showBoundingBoxes: true,
-                showLabels: true,
-                showBlurred: false
-              };
               
               return (
                 <ResultCard key={index}>
@@ -866,12 +867,14 @@ const FolderProcessor = ({
                     <ImageViewer
                       image={result}  // Pass the entire result object like in single image processing
                       detections={result.detection?.detections || []}  // Use the same structure as single image
-                      showBoundingBoxes={settings.showBoundingBoxes}
-                      showLabels={settings.showLabels}
-                      showBlurred={settings.showBlurred}
-                      onToggleBoundingBoxes={() => toggleBoundingBoxes(index)}
-                      onToggleLabels={() => toggleLabels(index)}
-                      onToggleBlurred={() => toggleBlurred(index)}
+                      showBoundingBoxes={displaySettings.showBoundingBoxes}
+                      showLabels={displaySettings.showLabels}
+                      showBlurred={displaySettings.showBlurred}
+                      onToggleBoundingBoxes={toggleBoundingBoxes}
+                      onToggleLabels={toggleLabels}
+                      onToggleBlurred={toggleBlurred}
+                      showControlsOverlay={false}
+                      enableZoomPan
                     />
                   </div>
                   <ResultInfo>

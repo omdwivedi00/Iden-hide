@@ -36,9 +36,6 @@ class DetectionVisualizer:
 
         return out
 
-
-__all__ = ["DetectionVisualizer"]
-
     def _draw_single_box(self, image: np.ndarray, bbox: List[int], label: str, confidence: float, show_confidence: bool):
         x1, y1, x2, y2 = [int(v) for v in bbox]
         color = self.colors.get(label, (255, 0, 0))
@@ -136,3 +133,6 @@ __all__ = ["DetectionVisualizer"]
             out = self.blur_rectangle_region(out, bbox, plate_blur_strength)
 
         return out
+
+
+__all__ = ["DetectionVisualizer"]

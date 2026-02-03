@@ -1,23 +1,31 @@
-/* Global CSS Reset to Prevent Horizontal Scroll */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  color-scheme: dark;
+  --bg: #0b0f1a;
+  --panel: rgba(18, 24, 40, 0.7);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text-primary: #e9eefc;
+  --text-muted: rgba(233, 238, 252, 0.7);
+}
+
 * {
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
+  background: var(--bg);
+  color: var(--text-primary);
 }
 
 #root {
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
-}
-
-/* Ensure all elements respect viewport width */
-* {
-  max-width: 100%;
 }

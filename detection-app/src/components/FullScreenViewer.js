@@ -13,7 +13,7 @@ const ModalOverlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.95);
+  background: rgba(3, 6, 12, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -28,6 +28,7 @@ const ModalContent = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 16px;
 `;
 
 const ImageContainer = styled.div`
@@ -108,16 +109,18 @@ const CloseButton = styled.button`
 `;
 
 const ImageInfo = styled.div`
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
+  background: rgba(15, 20, 32, 0.8);
+  border-radius: 12px;
   padding: 15px 20px;
   text-align: center;
   min-width: 300px;
+  color: #e9eefc;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 `;
 
 const ImageTitle = styled.h3`
   margin: 0 0 10px 0;
-  color: #333;
+  color: #e9eefc;
   font-size: 18px;
 `;
 
@@ -126,7 +129,7 @@ const ImageStats = styled.div`
   gap: 20px;
   justify-content: center;
   font-size: 14px;
-  color: #666;
+  color: rgba(233, 238, 252, 0.7);
   margin-bottom: 15px;
 `;
 
@@ -138,8 +141,27 @@ const StatItem = styled.div`
 
 const ImageCounter = styled.div`
   font-size: 14px;
-  color: #666;
+  color: rgba(233, 238, 252, 0.7);
   margin-bottom: 10px;
+`;
+
+const ViewerToolbar = styled.div`
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(15, 20, 32, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+`;
+
+const ToolbarButton = styled.button`
+  background: ${({ $active }) => ($active ? 'rgba(98, 126, 255, 0.25)' : 'transparent')};
+  color: #e9eefc;
+  border: 1px solid ${({ $active }) => ($active ? 'rgba(120, 150, 255, 0.35)' : 'rgba(255, 255, 255, 0.08)')};
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
 `;
 
 const ActionButtons = styled.div`
@@ -342,6 +364,9 @@ const FullScreenViewer = ({
               onToggleBoundingBoxes={toggleBoundingBoxes}
               onToggleLabels={toggleLabels}
               onToggleBlurred={toggleBlurred}
+              showControlsOverlay={false}
+              enableZoomPan
+              resetSignal={0}
             />
           </div>
 
@@ -354,6 +379,20 @@ const FullScreenViewer = ({
             ›
           </NavigationButton>
         </ImageContainer>
+
+        <ViewerToolbar>
+          <ToolbarButton $active={imageViewerSettings.showBoundingBoxes} onClick={toggleBoundingBoxes}>
+            Boxes
+          </ToolbarButton>
+          <ToolbarButton $active={imageViewerSettings.showLabels} onClick={toggleLabels}>
+            Labels
+          </ToolbarButton>
+          {currentImage.blurred && (
+            <ToolbarButton $active={imageViewerSettings.showBlurred} onClick={toggleBlurred}>
+              {imageViewerSettings.showBlurred ? 'Blurred' : 'Original'}
+            </ToolbarButton>
+          )}
+        </ViewerToolbar>
 
         <ImageInfo>
           <ImageTitle>{currentImage.filename}</ImageTitle>

@@ -3,7 +3,7 @@
  * Handles S3 image processing with progress tracking
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
 import { mediaQueries, layoutHelpers } from '../styles/mediaKit';
@@ -12,38 +12,23 @@ import S3ImageViewer from './S3ImageViewer';
 
 const S3Container = styled.div`
   ${layoutHelpers.container('xxl')}
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  min-height: 100vh;
-  
-  ${mediaQueries.xl} {
-    padding: 2rem;
-  }
-  
-  ${mediaQueries.xxl} {
-    padding: 3rem;
-  }
+  background: transparent;
+  min-height: 100%;
+  padding: 0;
 `;
 
 const Section = styled.div`
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  border: 1px solid rgba(255,255,255,0.2);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-    transform: translateY(-2px);
-  }
+  background: rgba(12, 16, 26, 0.6);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 `;
 
 const SectionTitle = styled.h2`
-  margin: 0 0 20px 0;
-  color: #333;
-  font-size: 24px;
+  margin: 0 0 16px 0;
+  color: #e9eefc;
+  font-size: 18px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -70,24 +55,26 @@ const FormGroup = styled.div`
 
 const Label = styled.label`
   font-weight: 500;
-  color: #333;
-  font-size: 14px;
+  color: rgba(233, 238, 252, 0.8);
+  font-size: 13px;
 `;
 
 const Input = styled.input`
   padding: 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
   font-size: 14px;
+  color: #e9eefc;
+  background: rgba(8, 12, 22, 0.6);
   transition: border-color 0.3s ease;
   
   &:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: rgba(98, 126, 255, 0.8);
   }
   
   &:disabled {
-    background: #f5f5f5;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 `;
@@ -107,8 +94,8 @@ const Checkbox = styled.input`
 const CheckboxLabel = styled.label`
   display: flex;
   align-items: center;
-  font-size: 14px;
-  color: #333;
+  font-size: 13px;
+  color: rgba(233, 238, 252, 0.75);
   cursor: pointer;
 `;
 
@@ -301,35 +288,51 @@ const ResultActions = styled.div`
 `;
 
 const ActionButton = styled.button`
-  background: #f5f5f5;
-  color: #333;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  background: rgba(12, 16, 26, 0.6);
+  color: #e9eefc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
   padding: 6px 12px;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   
   &:hover {
-    background: #e0e0e0;
-    transform: translateY(-1px);
+    background: rgba(98, 126, 255, 0.15);
   }
   
   &.primary {
-    background: #667eea;
+    background: linear-gradient(135deg, #627eff 0%, #8f6bff 100%);
     color: white;
-    border-color: #667eea;
-    
-    &:hover {
-      background: #5a6fd8;
-    }
+    border-color: transparent;
   }
+`;
+
+const StepRail = styled.div`
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const StepItem = styled.div`
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: ${({ $active }) => ($active ? '#e9eefc' : 'rgba(233, 238, 252, 0.5)')};
+  background: ${({ $active }) => ($active ? 'rgba(98, 126, 255, 0.25)' : 'rgba(8, 12, 22, 0.6)')};
 `;
 
 const S3Processor = ({ 
   onProcessingStart, 
   onProcessingComplete, 
-  onProgressUpdate 
+  onProgressUpdate,
+  detectFace: detectFaceProp = true,
+  detectLicensePlate: detectLicensePlateProp = true,
+  faceBlurStrength: faceBlurStrengthProp = 25,
+  plateBlurStrength: plateBlurStrengthProp = 20,
+  embedded = true,
+  showDetectionControls = true
 }) => {
   // Credentials state
   const [credentials, setCredentials] = useState({
@@ -350,10 +353,10 @@ const S3Processor = ({
   const [outputS3Folder, setOutputS3Folder] = useState('');
   
   // Detection settings
-  const [detectFace, setDetectFace] = useState(true);
-  const [detectLicensePlate, setDetectLicensePlate] = useState(true);
-  const [faceBlurStrength, setFaceBlurStrength] = useState(25);
-  const [plateBlurStrength, setPlateBlurStrength] = useState(20);
+  const [detectFace, setDetectFace] = useState(detectFaceProp);
+  const [detectLicensePlate, setDetectLicensePlate] = useState(detectLicensePlateProp);
+  const [faceBlurStrength, setFaceBlurStrength] = useState(faceBlurStrengthProp);
+  const [plateBlurStrength, setPlateBlurStrength] = useState(plateBlurStrengthProp);
   
   // Processing mode
   const [processingMode, setProcessingMode] = useState('single'); // 'single' or 'folder'
@@ -375,6 +378,20 @@ const S3Processor = ({
   // Parallel processing settings
   const [useParallelProcessing, setUseParallelProcessing] = useState(false);
   const [maxWorkers, setMaxWorkers] = useState(4);
+
+  useEffect(() => {
+    setDetectFace(detectFaceProp);
+    setDetectLicensePlate(detectLicensePlateProp);
+    setFaceBlurStrength(faceBlurStrengthProp);
+    setPlateBlurStrength(plateBlurStrengthProp);
+  }, [detectFaceProp, detectLicensePlateProp, faceBlurStrengthProp, plateBlurStrengthProp]);
+
+  const hasSelection = processingMode === 'single'
+    ? Boolean(inputS3Path && outputS3Path)
+    : Boolean(inputS3Folder && outputS3Folder);
+
+  const hasResults = processingResults.length > 0;
+  const activeStep = !credentialsValid ? 1 : !hasSelection ? 2 : isProcessing ? 3 : hasResults ? 4 : 3;
 
   // Test credentials
   const testCredentials = useCallback(async () => {
@@ -568,39 +585,14 @@ const S3Processor = ({
 
   return (
     <S3Container>
-      <Section style={{ textAlign: 'center', marginBottom: '30px' }}>
-        <h1 style={{ 
-          margin: '0 0 15px 0', 
-          fontSize: '3rem', 
-          fontWeight: '800',
-          background: 'linear-gradient(45deg, #1e3c72, #667eea)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text'
-        }}>
-          🛡️ Iden-Hide
-        </h1>
-        <p style={{ 
-          margin: '0 0 20px 0', 
-          fontSize: '1.3rem', 
-          color: '#666',
-          fontWeight: '300'
-        }}>
-          AI-Powered Anonymization Engine
-        </p>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: 'rgba(30, 60, 114, 0.1)',
-          padding: '8px 16px',
-          borderRadius: '25px',
-          fontSize: '0.9rem',
-          fontWeight: '500',
-          color: '#1e3c72'
-        }}>
-          ☁️ Process images directly from AWS S3 with cloud-scale privacy protection
-        </div>
+      <Section>
+        <SectionTitle>S3 Pipeline</SectionTitle>
+        <StepRail>
+          <StepItem $active={activeStep >= 1}>1) Credentials</StepItem>
+          <StepItem $active={activeStep >= 2}>2) Select</StepItem>
+          <StepItem $active={activeStep >= 3}>3) Run</StepItem>
+          <StepItem $active={activeStep >= 4}>4) Review</StepItem>
+        </StepRail>
       </Section>
       
       {/* Credentials Section */}
@@ -617,7 +609,7 @@ const S3Processor = ({
               value={credentials.aws_access_key_id}
               onChange={(e) => setCredentials(prev => ({ ...prev, aws_access_key_id: e.target.value }))}
               placeholder="AKIA..."
-              disabled={isProcessing}
+              disabled={!credentialsValid || isProcessing}
             />
           </FormGroup>
           
@@ -628,7 +620,7 @@ const S3Processor = ({
               value={credentials.aws_secret_access_key}
               onChange={(e) => setCredentials(prev => ({ ...prev, aws_secret_access_key: e.target.value }))}
               placeholder="Your secret key"
-              disabled={isProcessing}
+              disabled={!credentialsValid || isProcessing}
             />
           </FormGroup>
         </FormGrid>
@@ -640,7 +632,7 @@ const S3Processor = ({
             value={credentials.aws_session_token}
             onChange={(e) => setCredentials(prev => ({ ...prev, aws_session_token: e.target.value }))}
             placeholder="For temporary credentials"
-            disabled={isProcessing}
+              disabled={!credentialsValid || isProcessing}
           />
         </FormGroup>
         
@@ -668,7 +660,7 @@ const S3Processor = ({
               name="processingMode"
               checked={processingMode === 'single'}
               onChange={() => setProcessingMode('single')}
-              disabled={isProcessing}
+              disabled={!credentialsValid || isProcessing}
             />
             Single Image
           </CheckboxLabel>
@@ -678,15 +670,15 @@ const S3Processor = ({
               name="processingMode"
               checked={processingMode === 'folder'}
               onChange={() => setProcessingMode('folder')}
-              disabled={isProcessing}
+              disabled={!credentialsValid || isProcessing}
             />
             Folder Processing
           </CheckboxLabel>
         </CheckboxGroup>
         
         {/* Parallel Processing Options */}
-        <div style={{ marginTop: '20px', padding: '15px', background: '#f8f9fa', borderRadius: '8px' }}>
-          <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>⚡ Processing Options</h3>
+        <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(8, 12, 22, 0.5)', borderRadius: '10px' }}>
+          <h3 style={{ margin: '0 0 15px 0', color: '#e9eefc', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Processing Options</h3>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -694,19 +686,19 @@ const S3Processor = ({
                 type="checkbox"
                 checked={useParallelProcessing}
                 onChange={(e) => setUseParallelProcessing(e.target.checked)}
-                disabled={isProcessing}
+              disabled={!credentialsValid || isProcessing}
               />
               <span style={{ fontWeight: '500' }}>Use Parallel Processing</span>
             </label>
             
             {useParallelProcessing && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <label style={{ fontSize: '14px', color: '#666' }}>Workers:</label>
+                <label style={{ fontSize: '13px', color: 'rgba(233, 238, 252, 0.6)' }}>Workers:</label>
                 <select
                   value={maxWorkers}
                   onChange={(e) => setMaxWorkers(parseInt(e.target.value))}
                   disabled={isProcessing}
-                  style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.12)', background: 'rgba(8, 12, 22, 0.6)', color: '#e9eefc' }}
                 >
                   <option value={2}>2</option>
                   <option value={4}>4</option>
@@ -720,11 +712,11 @@ const S3Processor = ({
           {useParallelProcessing && (
             <div style={{ 
               padding: '10px', 
-              background: '#fff3cd', 
-              border: '1px solid #ffeaa7', 
-              borderRadius: '4px',
-              fontSize: '14px',
-              color: '#856404'
+              background: 'rgba(255, 197, 85, 0.1)', 
+              border: '1px solid rgba(255, 197, 85, 0.3)', 
+              borderRadius: '8px',
+              fontSize: '12px',
+              color: 'rgba(255, 226, 168, 0.9)'
             }}>
               ⚠️ <strong>Warning:</strong> Parallel processing may use more system resources and could potentially affect detection accuracy due to concurrent model loading. Use for faster processing of large batches.
             </div>
@@ -854,59 +846,60 @@ const S3Processor = ({
         </>
       )}
 
-      {/* Detection Settings */}
-      <Section>
-        <SectionTitle>
-          🎯 Detection Settings
-        </SectionTitle>
-        
-        <CheckboxGroup>
-          <CheckboxLabel>
-            <Checkbox
-              type="checkbox"
-              checked={detectFace}
-              onChange={(e) => setDetectFace(e.target.checked)}
-              disabled={isProcessing}
-            />
-            Detect Faces
-          </CheckboxLabel>
-          <CheckboxLabel>
-            <Checkbox
-              type="checkbox"
-              checked={detectLicensePlate}
-              onChange={(e) => setDetectLicensePlate(e.target.checked)}
-              disabled={isProcessing}
-            />
-            Detect License Plates
-          </CheckboxLabel>
-        </CheckboxGroup>
-        
-        <FormGrid>
-          <FormGroup>
-            <Label>Face Blur Strength</Label>
-            <Input
-              type="number"
-              value={faceBlurStrength}
-              onChange={(e) => setFaceBlurStrength(parseInt(e.target.value))}
-              min="5"
-              max="100"
-              disabled={isProcessing}
-            />
-          </FormGroup>
+      {showDetectionControls && (
+        <Section>
+          <SectionTitle>
+            Detection Settings
+          </SectionTitle>
           
-          <FormGroup>
-            <Label>Plate Blur Strength</Label>
-            <Input
-              type="number"
-              value={plateBlurStrength}
-              onChange={(e) => setPlateBlurStrength(parseInt(e.target.value))}
-              min="5"
-              max="100"
-              disabled={isProcessing}
-            />
-          </FormGroup>
-        </FormGrid>
-      </Section>
+          <CheckboxGroup>
+            <CheckboxLabel>
+              <Checkbox
+                type="checkbox"
+                checked={detectFace}
+                onChange={(e) => setDetectFace(e.target.checked)}
+                disabled={!credentialsValid || isProcessing}
+              />
+              Detect Faces
+            </CheckboxLabel>
+            <CheckboxLabel>
+              <Checkbox
+                type="checkbox"
+                checked={detectLicensePlate}
+                onChange={(e) => setDetectLicensePlate(e.target.checked)}
+                disabled={isProcessing}
+              />
+              Detect License Plates
+            </CheckboxLabel>
+          </CheckboxGroup>
+          
+          <FormGrid>
+            <FormGroup>
+              <Label>Face Blur Strength</Label>
+              <Input
+                type="number"
+                value={faceBlurStrength}
+                onChange={(e) => setFaceBlurStrength(parseInt(e.target.value))}
+                min="5"
+                max="100"
+                disabled={isProcessing}
+              />
+            </FormGroup>
+            
+            <FormGroup>
+              <Label>Plate Blur Strength</Label>
+              <Input
+                type="number"
+                value={plateBlurStrength}
+                onChange={(e) => setPlateBlurStrength(parseInt(e.target.value))}
+                min="5"
+                max="100"
+                disabled={isProcessing}
+              />
+            </FormGroup>
+          </FormGrid>
+        </Section>
+      )}
 
       {/* Status and Progress */}
       {status.type !== 'idle' && (

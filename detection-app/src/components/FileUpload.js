@@ -15,8 +15,8 @@ const UploadContainer = styled.div`
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  background-color: ${props => props.isDragActive ? '#f0f8ff' : '#fafafa'};
-  border-color: ${props => props.isDragActive ? '#007bff' : '#ccc'};
+  background-color: ${props => props.$isDragActive ? '#f0f8ff' : '#fafafa'};
+  border-color: ${props => props.$isDragActive ? '#007bff' : '#ccc'};
 
   &:hover {
     border-color: #007bff;
@@ -120,7 +120,7 @@ const FileUpload = ({ onFilesSelected, maxFiles = 10, accept = "image/*" }) => {
 
   return (
     <div>
-      <UploadContainer {...getRootProps()} isDragActive={isDragActive}>
+      <UploadContainer {...getRootProps()} $isDragActive={isDragActive}>
         <input {...getInputProps()} />
         <UploadText>
           {isDragActive

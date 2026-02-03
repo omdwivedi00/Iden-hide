@@ -10,51 +10,32 @@ const ViewerContainer = styled.div`
   position: relative;
   display: inline-block;
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  background: rgba(8, 12, 22, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
 `;
 
 const ImageWrapper = styled.div`
   position: relative;
   display: inline-block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 `;
 
 const Canvas = styled.canvas`
   max-width: 100%;
   height: auto;
   display: block;
+  transform-origin: 0 0;
 `;
 
-const ControlsOverlay = styled.div`
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  gap: 8px;
-  z-index: 10;
-`;
-
-const ControlButton = styled.button`
-  background: rgba(0,0,0,0.7);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 6px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  &:hover {
-    background: rgba(0,0,0,0.9);
-  }
-
-  &.active {
-    background: #007bff;
-  }
+const CanvasPanLayer = styled.div`
+  position: relative;
+  display: inline-block;
+  width: 100%;
 `;
 
 const DetectionInfo = styled.div`
@@ -103,11 +84,17 @@ const ImageViewer = ({
   showBlurred = false,
   onToggleBoundingBoxes,
   onToggleLabels,
-  onToggleBlurred
+  onToggleBlurred,
+  showControlsOverlay = true,
+  enableZoomPan = true,
+  resetSignal = 0
 }) => {
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = useRef({ x: 0, y: 0 });
 
   // Get detections for the current image (original or blurred)
   const getCurrentDetections = useCallback(() => {
@@ -179,6 +166,43 @@ const ImageViewer = ({
     return image.preview || image.url;
   };
 
+  const clamp = (val, min, max) => Math.min(max, Math.max(min, val));
+
+  const handleWheel = (event) => {
+    if (!enableZoomPan) return;
+    event.preventDefault();
+    const delta = event.deltaY < 0 ? 0.1 : -0.1;
+    setTransform(prev => {
+      const nextScale = clamp(prev.scale + delta, 1, 4);
+      return { ...prev, scale: nextScale };
+    });
+  };
+
+  const handleMouseDown = (event) => {
+    if (!enableZoomPan) return;
+    setIsPanning(true);
+    panStart.current = { x: event.clientX - transform.x, y: event.clientY - transform.y };
+  };
+
+  const handleMouseMove = (event) => {
+    if (!enableZoomPan || !isPanning) return;
+    setTransform(prev => ({
+      ...prev,
+      x: event.clientX - panStart.current.x,
+      y: event.clientY - panStart.current.y
+    }));
+  };
+
+  const handleMouseUp = () => {
+    if (!enableZoomPan) return;
+    setIsPanning(false);
+  };
+
+  const handleDoubleClick = () => {
+    if (!enableZoomPan) return;
+    setTransform({ scale: 1, x: 0, y: 0 });
+  };
+
 
   // Update canvas when image or settings change
   useEffect(() => {
@@ -207,6 +231,12 @@ const ImageViewer = ({
     }
   }, [imageLoaded, drawBoundingBoxes]);
 
+  useEffect(() => {
+    if (enableZoomPan) {
+      setTransform({ scale: 1, x: 0, y: 0 });
+    }
+  }, [resetSignal, enableZoomPan]);
+
   if (!image) return null;
 
   return (
@@ -220,14 +250,25 @@ const ImageViewer = ({
           onLoad={handleImageLoad}
         />
         
-        <Canvas
-          ref={canvasRef}
-          style={{ 
-            maxWidth: '100%', 
-            height: 'auto',
-            display: imageLoaded ? 'block' : 'none'
-          }}
-        />
+        <CanvasPanLayer
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onDoubleClick={handleDoubleClick}
+          style={{ cursor: enableZoomPan ? (isPanning ? 'grabbing' : 'grab') : 'default' }}
+        >
+          <Canvas
+            ref={canvasRef}
+            style={{ 
+              maxWidth: '100%', 
+              height: 'auto',
+              display: imageLoaded ? 'block' : 'none',
+              transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`
+            }}
+          />
+        </CanvasPanLayer>
         
         {!imageLoaded && (
           <div style={{
@@ -243,76 +284,24 @@ const ImageViewer = ({
           </div>
         )}
 
-        <ControlsOverlay>
-          <ControlButton
-            className={showBoundingBoxes ? 'active' : ''}
-            onClick={onToggleBoundingBoxes}
-            title="Toggle bounding boxes"
-          >
-            📦 {showBoundingBoxes ? 'Hide' : 'Show'} Boxes
-          </ControlButton>
-          
-          <ControlButton
-            className={showLabels ? 'active' : ''}
-            onClick={onToggleLabels}
-            title="Toggle labels"
-            disabled={!showBoundingBoxes}
-          >
-            🏷️ {showLabels ? 'Hide' : 'Show'} Labels
-          </ControlButton>
-
-          {image.blurred && (
-            <ControlButton
-              className={showBlurred ? 'active' : ''}
-              onClick={onToggleBlurred}
-              title="Toggle blurred image"
-            >
-              🔒 {showBlurred ? 'Show Original' : 'Show Blurred'}
-            </ControlButton>
-          )}
-        </ControlsOverlay>
-
-        {/* Download Buttons */}
-        <div style={{ 
-          position: 'absolute', 
-          bottom: '10px', 
-          left: '10px', 
-          display: 'flex', 
-          gap: '8px', 
-          zIndex: 10 
-        }}>
-          <ControlButton
-            disabled={isDownloading}
-            onClick={() => {
-              // Download original image
-              const link = document.createElement('a');
-              link.href = image.preview || image.url;
-              link.download = image.filename;
-              link.click();
-            }}
-            title="Download original image"
-          >
-            {isDownloading ? '⏳' : '📥'} Original
-          </ControlButton>
-          
-          {image.blurred && (
-            <ControlButton
-              disabled={isDownloading}
-              onClick={() => {
-                // Download blurred image
-                const filename = image.blurred.blurred_image_path.split('/').pop();
-                const url = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/download/${filename}`;
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `blurred_${image.filename}`;
-                link.click();
+        {showControlsOverlay && (
+          <div style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10 }}>
+            <button
+              onClick={onToggleBoundingBoxes}
+              style={{
+                background: showBoundingBoxes ? '#5b7cfa' : 'rgba(0,0,0,0.6)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '999px',
+                padding: '6px 10px',
+                fontSize: '12px',
+                cursor: 'pointer'
               }}
-              title="Download blurred image"
             >
-              {isDownloading ? '⏳' : '🔒'} Blurred
-            </ControlButton>
-          )}
-        </div>
+              {showBoundingBoxes ? 'Boxes On' : 'Boxes Off'}
+            </button>
+          </div>
+        )}
 
         {getCurrentDetections() && getCurrentDetections().length > 0 && (
           <DetectionInfo>
