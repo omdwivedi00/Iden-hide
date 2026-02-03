@@ -114,7 +114,7 @@ jspm_packages/
 .yarn-integrity
 
 # dotenv environment variables file
-.env
+.env.example
 .env.local
 .env.development.local
 .env.test.local
@@ -166,6 +166,7 @@ output/
 outputs/
 results/
 processed/
+artifacts/output_batch/
 
 # Test files
 test_*.jpg
@@ -173,6 +174,7 @@ test_*.png
 test_*.jpeg
 *.test.js
 *.spec.js
+tests/
 
 # Backup files
 *.bak
@@ -214,7 +216,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/
